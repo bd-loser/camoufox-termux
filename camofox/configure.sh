@@ -184,12 +184,15 @@ echo 'int main(){}' | clang -xc - -o /dev/null && echo "clang wrapper selftest o
 step "build env (mirrors termux build.sh pre_configure)"
 TERMUX_HOST_PLATFORM=aarch64-linux-android
 CARGO_TARGET_NAME=aarch64-linux-android
-export CC=clang CXX=clang++
+# Absolute wrapper paths for TARGET and HOST alike: mach/pip/isolation stages
+# can drop PATH or resolv raw compilers (evidence: venv bootstrap used raw
+# /usr/bin/clang -> unversioned triple regression in standalone runs).
+export CC="$HOME/clangwrap/clang" CXX="$HOME/clangwrap/clang++"
 # Host tools (elfhack relrhack etc.) are compiled AND linked natively: use
 # the absolute native compiler and add the libc++ library the host linker
 # needs (ld.lld adds no default -lc++_shared; termux libc++ ABI is __ndk1).
-export HOST_CC="$PREFIX_DIR/bin/clang"
-export HOST_CXX="$PREFIX_DIR/bin/clang++"
+export HOST_CC="$HOME/clangwrap/clang"
+export HOST_CXX="$HOME/clangwrap/clang++"
 export HOST_LDFLAGS="-L$PREFIX_DIR/lib -lc++_shared"
 export BINDGEN_CFLAGS="--target=aarch64-unknown-linux-android24"
 export BINDGEN_EXTRA_CLANG_ARGS_AARCH64_LINUX_ANDROID="$BINDGEN_CFLAGS"
@@ -202,7 +205,7 @@ export CXXFLAGS="-U__ANDROID__ -D_LIBCPP_HAS_NO_C11_ALIGNED_ALLOC"
 # not ship /system libm.so — a shared DT_NEEDED would break on real phones.
 export LDFLAGS="-landroid-shmem -landroid-spawn -llog -L$PREFIX_DIR/lib -lc++_shared -L$PREFIX_DIR/opt/ndk-multilib/aarch64-linux-android/lib -l:libm.a"
 # gkrust OOM guard, same as termux
-export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS+=" -C debuginfo=1"
+export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS+=" -C debuginfo=1 -A deprecated"
 env | grep -E '^(CC|CXX|HOST_|BINDGEN|CXXFLAGS|LDFLAGS|CARGO)' | tee "$OUT/env.txt"
 command -v cbindgen >/dev/null || cargo install --quiet cbindgen
 
