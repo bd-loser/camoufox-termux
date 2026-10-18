@@ -1,0 +1,19 @@
+--- a/third_party/rust/glslopt/glsl-optimizer/src/util/u_endian.h
++++ b/third_party/rust/glslopt/glsl-optimizer/src/util/u_endian.h
+@@ -27,7 +27,15 @@
+ #ifndef U_ENDIAN_H
+ #define U_ENDIAN_H
+ 
+-#ifdef HAVE_ENDIAN_H
++#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && \
++    __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++# define UTIL_ARCH_LITTLE_ENDIAN 1
++# define UTIL_ARCH_BIG_ENDIAN 0
++#elif defined(__BYTE_ORDER__) && defined(__ORDER_BIG_ENDIAN__) && \
++    __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
++# define UTIL_ARCH_LITTLE_ENDIAN 0
++# define UTIL_ARCH_BIG_ENDIAN 1
++#elif defined(HAVE_ENDIAN_H)
+ #include <endian.h>
+ 
+ #if __BYTE_ORDER == __LITTLE_ENDIAN
