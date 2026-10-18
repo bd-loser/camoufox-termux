@@ -2,9 +2,14 @@ name: camofox-build
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish package to the bionic-latest release"
+        type: boolean
+        default: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -48,3 +53,19 @@ jobs:
           path: camofox-out-cfg/
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Publish to bionic-latest release
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          # Rolling "latest" release: clobber-upload keeps storage constant.
+          if gh release view bionic-latest >/dev/null 2>&1; then
+            gh release upload bionic-latest camofox-out-cfg/camoufox-*.tar.* camofox-out-cfg/camoufox-*.deb camofox-out-cfg/camoufox-*.zip camofox-out-cfg/camoufox-*.sha256 --clobber
+          else
+            gh release create bionic-latest \
+              --title "Camoufox — Bionic native (rolling latest)" \
+              --notes "Native Bionic build for Termux aarch64. Formats: tar.xz tree, .deb (pkg/apt), pacman .pkg.tar.xz, zip. Verify with .sha256 sidecars; install guide in docs/INSTALL.md." \
+              camofox-out-cfg/camoufox-*.tar.xz camofox-out-cfg/camoufox-*.tar.* camofox-out-cfg/camoufox-*.deb camofox-out-cfg/camoufox-*.zip camofox-out-cfg/camoufox-*.sha256
+          fi

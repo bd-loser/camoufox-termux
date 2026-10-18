@@ -287,8 +287,91 @@ if [ "$RC_B" = 0 ] && [ -n "$BIN" ]; then
   TARGET_TAR="$(ls -t "$WORK/camoufox/browser/$SRC_DIR/obj-"*/dist/*.tar.* 2>/dev/null | head -1)"
   [ -n "$TARGET_TAR" ] || { echo "package output missing" >&2; exit 1; }
   ls -la "$TARGET_TAR" | tee -a "$OUT/build.log"
-  cp "$TARGET_TAR" "$OUT/"
-  ( cd "$OUT" && sha256sum "$(basename "$TARGET_TAR")" > "$(basename "$TARGET_TAR").sha256" )
+  cp "$TARGET_TAR" "$OUT/native-tree.tar"
+  ( cd "$OUT" && sha256sum native-tree.tar > native-tree.tar.sha256 )
+
+  # ---- multi-format packaging (deb / pacman / zip / tree) ----
+  step "build deb / pacman / zip packages"
+  STAGE="$OUT/debstage/opt/camoufox"
+  mkdir -p "$STAGE"
+  tar -xf "$OUT/native-tree.tar" -C "$STAGE"
+  rm -f "$STAGE/gfxtest" 2>/dev/null || true
+  VFILE="$STAGE/application.ini"
+  DEBVER="$(grep -m1 '^Version=' "$VFILE" | cut -d= -f2 | sed 's/-/~/; s/beta.*/b/')"
+  [ -n "$DEBVER" ] || DEBVER="0.0"
+  PKGBASE="$OUT/camoufox-$DEBVER-aarch64"
+
+  mkdir -p "$OUT/debstage/opt/bin"
+  cat > "$OUT/debstage/opt/bin/camoufox" <<'WEOF'
+#!/data/data/com.termux/files/usr/bin/sh
+exec "$PREFIX/opt/camoufox/camoufox-bin" "$@"
+WEOF
+  chmod 0755 "$OUT/debstage/opt/bin/camoufox"
+
+  CDIR="$OUT/debstage/DEBIAN"; mkdir -p "$CDIR"
+  ISZ="$(du -sk "$STAGE" | cut -f1)"
+  {
+    echo "Package: camoufox"
+    echo "Version: $DEBVER"
+    echo "Architecture: aarch64"
+    echo "Maintainer: bd-loser <bd-loser@users.noreply.github.com>"
+    echo "Installed-Size: $ISZ"
+    echo "Depends: gtk3, libandroid-shmem, libandroid-spawn, libc++"
+    echo "Section: web"
+    echo "Homepage: https://github.com/bd-loser/camoufox-termux"
+    echo "Description: Camoufox anti-fingerprint Firefox fork (Bionic native)"
+    echo " Anti-detect Firefox engine built natively for Termux/Bionic aarch64."
+    echo " Engine under $PREFIX/opt/camoufox; launcher: camoufox."
+  } > "$CDIR/control"
+  DEB="$PKGBASE.deb"
+  dpkg-deb --root-owner-group --build "$OUT/debstage" "$DEB" >/dev/null
+  ( cd "$OUT" && sha256sum "$(basename "$DEB")" > "$(basename "$DEB").sha256" )
+
+  PAC="$PKGBASE.pkg.tar.xz"
+  PRT="$OUT/pacstage"; rm -rf "$PRT"; mkdir -p "$PRT/opt/camoufox"
+  cp -a "$STAGE/." "$PRT/opt/camoufox/"
+  cat > "$PRT/.PKGINFO" <<EOF
+pkgname = camoufox
+pkgver = $DEBVER-1
+pkgdesc = Camoufox anti-fingerprint Firefox fork (Bionic native)
+url = https://github.com/bd-loser/camoufox-termux
+builddate = $(date +%s)
+packager = bd-loser
+size = $(du -sk "$PRT/opt" | cut -f1)
+arch = aarch64
+depend = gtk3
+depend = libandroid-shmem
+depend = libandroid-spawn
+EOF
+  python3 - "$PRT" > "$PRT/.MTREE" <<'PYM'
+import hashlib, os, sys, time
+import gzip
+root = sys.argv[1]
+now = int(time.time())
+out = []
+for dp, dn, fn in os.walk(root):
+    for f in fn:
+        fp = os.path.join(dp, f)
+        rel = "/" + os.path.relpath(fp, root)
+        h = hashlib.sha256(open(fp, "rb").read()).hexdigest()
+        out.append(f"{rel} time={now} size={os.path.getsize(fp)} sha256={h}")
+sys.stdout.buffer.write(gzip.compress(("\n".join(out) + "\n").encode()))
+PYM
+  tar -cJf "$PAC" -C "$PRT" .PKGINFO .MTREE opt
+  ( cd "$OUT" && sha256sum "$(basename "$PAC")" > "$(basename "$PAC").sha256" )
+
+  ZIPB="$PKGBASE.zip"
+  cat > "$STAGE/install.sh" <<'IEOF'
+#!/data/data/com.termux/files/usr/bin/sh
+chmod 755 camoufox-bin
+echo "installed (zip). run: ./camoufox-bin"
+IEOF
+  chmod 755 "$STAGE/install.sh"
+  ( cd "$STAGE" && zip -qr9 "$ZIPB" . )
+  ( cd "$OUT" && sha256sum "$(basename "$ZIPB")" > "$(basename "$ZIPB").sha256" )
+
+  ( cd "$OUT" && mv native-tree.tar "camoufox-$DEBVER-aarch64-tree.tar" && mv native-tree.tar.sha256 "camoufox-$DEBVER-aarch64-tree.tar.sha256" )
+  ls -la "$OUT"/camoufox-* | tee -a "$OUT/build.log"
   exit 0
 else
   echo "BUILD FAILED or binary missing (log preserved)" >&2
