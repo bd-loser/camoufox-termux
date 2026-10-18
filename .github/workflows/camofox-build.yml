@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: camofox-build
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-24.04-arm
