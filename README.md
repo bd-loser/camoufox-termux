@@ -41,7 +41,7 @@ Bionic ELF · /system/bin/linker64 · runs in Termux · no proot · no root
 
 Artifact downloads need a GitHub login and expire (retention policy):
 
-1. Open [Actions → camofox-build](https://github.com/bd-loser/camoufox-bionic/actions/workflows/camofox-build.yml)
+1. Open [Actions → camofox-build](https://github.com/bd-loser/camoufox-termux/actions/workflows/camofox-build.yml)
 2. Download the latest `camofox-build-out` artifact
 3. Verify and install:
 
