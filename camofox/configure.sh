@@ -91,7 +91,8 @@ TERMUX_PREFIX_UX="${PREFIX:-/data/data/com.termux/files/usr}"
   for p in "$TFP"/*.patch; do
     name="$(basename "$p")"
     case "$name" in
-      0003-*|0012-*|0023-*|0028-*|0031-*) echo "SKIP $name"; continue;;
+      0031-*) echo "SKIP $name (fixes a Firefox-157+ regression absent at 156 - by design)"; continue;;
+      0003-*|0012-*|0023-*|0028-*) echo "SKIP $name (replaced by rebased camofox/termux-patches)"; continue;;
     esac
     # Termux substitutes build variables (@TERMUX_PREFIX@ etc.) in patch
     # files before applying; raw placeholders would end up as literal paths
