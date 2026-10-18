@@ -216,6 +216,12 @@ sed -e "s|@TERMUX_HOST_PLATFORM@|${TERMUX_HOST_PLATFORM}|g" \
     /work/camofox/termux.mozconfig > "$WORK/termux-sub.mozconfig"
 # base.mozconfig lives at browser/assets/base.mozconfig
 cat ../assets/base.mozconfig "$WORK/termux-sub.mozconfig" > mozconfig
+# Persist the objdir through the /ci-cache mount: warm runs skip recompiling
+# everything (ccache replays into a live tree; rust fragments stay).
+if [ -d /ci-cache ]; then
+  mkdir -p /ci-cache/objdir
+  echo "mk_add_options MOZ_OBJDIR=/ci-cache/objdir" >> mozconfig
+fi
 
 step "include-path debug (asm/types.h truth)"
 ls -la /data/data/com.termux/files/usr/include/asm 2>/dev/null || echo "NO /usr/include/asm"
@@ -256,9 +262,9 @@ step "cargo-linker + maturin android env"
 # its cross-compile logic creates from NDK wrappers). With a native Android
 # host/target pair the file is never created, but the linker reference is:
 # create it ourselves, pointing at the versioned-triple wrapped clang.
-# The objdir lives inside the source tree (MOZ_OBJDIR set by base.mozconfig);
+# objdir is persisted at /ci-cache/objdir (MOZ_OBJDIR appended to mozconfig);
 # ~/.mozbuild/srcdirs only holds the mach virtualenvs.
-OBJDIR="$(ls -d "$WORK/camoufox/browser/$SRC_DIR"/obj-* 2>/dev/null | head -1)"
+OBJDIR="$(ls -d /ci-cache/objdir 2>/dev/null | head -1)"
 echo "objdir: ${OBJDIR:-MISSING}" | tee -a "$OUT/build.log"
 [ -n "$OBJDIR" ] || { ls "$WORK/camoufox/browser/$SRC_DIR" >&2; echo "no objdir after configure" >&2; exit 1; }
 # rust.mk references $SRC_DIR/build/cargo-linker (topsrcdir), created by the
@@ -278,8 +284,8 @@ echo "building with -j$NPROC, CCACHE_DIR=$CCACHE_DIR"
 time python3 ./mach build -j"$NPROC" 2>&1 | tee "$OUT/build.log"
 RC_B=${PIPESTATUS[0]}
 echo "build exit: $RC_B" | tee -a "$OUT/build.log"
-OBJDIR="$(ls -d "$WORK/camoufox/browser/$SRC_DIR"/obj-* 2>/dev/null | head -1)"  # refresh
-BIN="$(find "$WORK/camoufox/browser/$SRC_DIR/obj-"*/dist/bin -name camoufox* -type f 2>/dev/null | head -1)"
+OBJDIR="$(ls -d /ci-cache/objdir 2>/dev/null | head -1)"  # refresh
+BIN="$(find /ci-cache/objdir/dist/bin -maxdepth 1 -name "camoufox*" -type f 2>/dev/null | head -1)"
 HERMES_PKGVER="$(cat "$WORK/camoufox/browser/$SRC_DIR/browser/config/version.txt" 2>/dev/null || echo unknown)"
 if [ "$RC_B" = 0 ] && [ -n "$BIN" ]; then
   echo "BUILD OK: $BIN" | tee -a "$OUT/build.log"
@@ -287,7 +293,7 @@ if [ "$RC_B" = 0 ] && [ -n "$BIN" ]; then
   cp "$BIN"* "$OUT/" 2>/dev/null || true
   step "mach package (omni.ja + release layout)"
   python3 ./mach package 2>&1 | tail -20 | tee -a "$OUT/build.log"
-  TARGET_TAR="$(ls -t "$WORK/camoufox/browser/$SRC_DIR/obj-"*/dist/*.tar.* 2>/dev/null | head -1)"
+  TARGET_TAR="$(ls -t /ci-cache/objdir/dist/*.tar.* 2>/dev/null | head -1)"
   [ -n "$TARGET_TAR" ] || { echo "package output missing" >&2; exit 1; }
   ls -la "$TARGET_TAR" | tee -a "$OUT/build.log"
   cp "$TARGET_TAR" "$OUT/native-tree.tar"
