@@ -6,9 +6,36 @@
 - For headless rendering: `pkg install gtk3` (via `x11-repo`)
 - For Playwright automation: `pkg install nodejs` (≥ 20) and `playwright-core`
 
-## 1. Get the package
+## 1. Get the package — four ways
 
-Builds are GitHub Actions artifacts ([camofox-build](https://github.com/bd-loser/camoufox-bionic/actions/workflows/camofox-build.yml)): download `camofox-build-out`, verify sha256, extract:
+### A. apt (recommended — one key for camoufox + opencode)
+
+Uses the existing [opencode-bionic apt repo on GitHub Pages](https://bd-loser.github.io/opencode-bionic):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bd-loser/opencode-bionic/main/repo-setup.sh | bash
+pkg install camoufox
+camoufox --version
+```
+
+Engine at `$PREFIX/opt/camoufox`, launcher `camoufox` on PATH; updates via `pkg upgrade`.
+
+### B. pacman (Termux pacman users)
+
+```bash
+# grab camoufox-<ver>-aarch64.pkg.tar.xz from the bionic-latest release, then
+pacman -U camoufox-<ver>-aarch64.pkg.tar.xz
+```
+
+### C. zip (manual)
+
+```bash
+unzip camoufox-<ver>-aarch64.zip -d ~/browsers/camoufox && ~/browsers/camoufox/install.sh
+```
+
+### D. tar.xz tree (from Actions artifact)
+
+Builds are GitHub Actions artifacts ([camofox-build](https://github.com/bd-loser/camoufox-termux/actions/workflows/camofox-build.yml)): download `camofox-build-out`, verify sha256, extract:
 
 ```bash
 unzip "camofox-build-out (N).zip" -d camofox-pkg
