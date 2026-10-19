@@ -302,15 +302,18 @@ if [ "$RC_B" = 0 ] && [ -n "$BIN" ]; then
 
   # ---- multi-format packaging (deb / pacman / zip / tree) ----
   step "build deb / pacman / zip packages"
+  RAW="$OUT/debstage_raw"
   STAGE="$OUT/debstage"
-  rm -rf "$STAGE"; mkdir -p "$STAGE"
-  tar -xf "$OUT/native-tree.tar" -C "$STAGE"
-  # mach package wraps contents in a top-level dir (camoufox/) — flatten
-  if [ -d "$STAGE/camoufox" ] && [ ! -f "$STAGE/application.ini" ]; then
-    mv "$STAGE/camoufox"/* "$STAGE"/
-    rmdir "$STAGE/camoufox"
+  rm -rf "$RAW" "$STAGE"; mkdir -p "$RAW" "$STAGE"
+  tar -xf "$OUT/native-tree.tar" -C "$RAW"
+  # mach package wraps everything in ONE top dir (camoufox/) that WE keep as
+  # the stage. Do NOT flatten: the tree legally contains a main binary also
+  # named `camoufox` beside dirs (mv-flatten collided on exactly that).
+  entries=("$RAW"/*)
+  if [ "${#entries[@]}" = 1 ] && [ -d "${entries[0]}" ] && [ -f "${entries[0]}/application.ini" ]; then
+    STAGE="${entries[0]}"
   fi
-  [ -f "$STAGE/application.ini" ] || { echo "application.ini missing after extraction" >&2; ls -la "$STAGE" | head >&2; exit 1; }
+  [ -f "$STAGE/application.ini" ] || { echo "application.ini missing after extraction" >&2; ls -la "$RAW" >&2; exit 1; }
   VFILE="$STAGE/application.ini"
   DEBVER="$(grep -m1 '^Version=' "$VFILE" | cut -d= -f2 | sed 's/-/~/; s/beta.*/b/')"
   [ -n "$DEBVER" ] || DEBVER="0.0"
@@ -341,6 +344,7 @@ WEOF
   DATA="$OUT/debdata/opt/camoufox"
 mkdir -p "$DATA" "$OUT/debdata/opt/bin"
 cp -a "$STAGE/." "$DATA/"
+
 mv "$OUT/debstage/opt/bin/camoufox" "$OUT/debdata/opt/bin/camoufox" 2>/dev/null || true
 DEB="$PKGBASE.deb"
 dpkg-deb --root-owner-group --build "$OUT/debdata" "$DEB" >/dev/null
