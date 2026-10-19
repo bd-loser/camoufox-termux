@@ -38,6 +38,24 @@ apt install -y ndk-sysroot ndk-multilib gtk3 pulseaudio libvpx libicu libnspr li
 # Android without an explicit API level (upstream never builds on Android).
 export ANDROID_API_LEVEL=24
 
+# --- termux rolling-repo repair: ccache vs libfmt ABI drift (seen 2026-10-19)
+# Today's ccache deb links fmt::v11 while the repo may ship newer libfmt;
+# then even `ccache --version` dies with CANNOT LINK EXECUTABLE ... vformat.
+# Try repo-archive libfmt builds newest-first until ccache links; if none
+# works, drop --with-ccache (mozconfig is generated later, CCACHE_OK set).
+CCACHE_OK=0
+if command -v ccache >/dev/null 2>&1; then
+  if ccache --version >/dev/null 2>&1; then CCACHE_OK=1
+  else
+    echo "ccache broken (libfmt ABI drift) - repairing from repo archive"
+    for deb in $(curl -fsSL https://packages.termux.dev/apt/termux-main/pool/main/libf/libfmt/ 2>/dev/null | grep -oE 'libfmt_[0-9.]+_aarch64\.deb' | sort -ruV); do
+      curl -fsSL "https://packages.termux.dev/apt/termux-main/pool/main/libf/libfmt/$deb" -o "/tmp/$deb" && dpkg -i "/tmp/$deb" >/dev/null 2>&1 || continue
+      if ccache --version >/dev/null 2>&1; then echo "repaired with $deb"; CCACHE_OK=1; break; fi
+    done
+    [ "$CCACHE_OK" = 1 ] || echo "WARNING: ccache unusable - build proceeds WITHOUT cache"
+  fi
+fi
+
 step "fetch camoufox @ $CAMOFOX_PIN"
 [ -d camoufox ] || {
   curl -fsSL -o camoufox.tar.gz \
@@ -217,6 +235,7 @@ sed -e "s|@TERMUX_HOST_PLATFORM@|${TERMUX_HOST_PLATFORM}|g" \
     /work/camofox/termux.mozconfig > "$WORK/termux-sub.mozconfig"
 # base.mozconfig lives at browser/assets/base.mozconfig
 cat ../assets/base.mozconfig "$WORK/termux-sub.mozconfig" > mozconfig
+[ "$CCACHE_OK" = 1 ] || sed -i '/^ac_add_options --with-ccache/d' mozconfig
 # Persist the objdir through the /ci-cache mount: warm runs skip recompiling
 # everything (ccache replays into a live tree; rust fragments stay).
 if [ -d /ci-cache ]; then
