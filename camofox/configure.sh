@@ -302,10 +302,15 @@ if [ "$RC_B" = 0 ] && [ -n "$BIN" ]; then
 
   # ---- multi-format packaging (deb / pacman / zip / tree) ----
   step "build deb / pacman / zip packages"
-  STAGE="$OUT/debstage/opt/camoufox"
-  mkdir -p "$STAGE"
+  STAGE="$OUT/debstage"
+  rm -rf "$STAGE"; mkdir -p "$STAGE"
   tar -xf "$OUT/native-tree.tar" -C "$STAGE"
-  rm -f "$STAGE/gfxtest" 2>/dev/null || true
+  # mach package wraps contents in a top-level dir (camoufox/) — flatten
+  if [ -d "$STAGE/camoufox" ] && [ ! -f "$STAGE/application.ini" ]; then
+    mv "$STAGE/camoufox"/* "$STAGE"/
+    rmdir "$STAGE/camoufox"
+  fi
+  [ -f "$STAGE/application.ini" ] || { echo "application.ini missing after extraction" >&2; ls -la "$STAGE" | head >&2; exit 1; }
   VFILE="$STAGE/application.ini"
   DEBVER="$(grep -m1 '^Version=' "$VFILE" | cut -d= -f2 | sed 's/-/~/; s/beta.*/b/')"
   [ -n "$DEBVER" ] || DEBVER="0.0"
@@ -333,8 +338,12 @@ WEOF
     echo " Anti-detect Firefox engine built natively for Termux/Bionic aarch64."
     echo " Engine under $PREFIX/opt/camoufox; launcher: camoufox."
   } > "$CDIR/control"
-  DEB="$PKGBASE.deb"
-  dpkg-deb --root-owner-group --build "$OUT/debstage" "$DEB" >/dev/null
+  DATA="$OUT/debdata/opt/camoufox"
+mkdir -p "$DATA" "$OUT/debdata/opt/bin"
+cp -a "$STAGE/." "$DATA/"
+mv "$OUT/debstage/opt/bin/camoufox" "$OUT/debdata/opt/bin/camoufox" 2>/dev/null || true
+DEB="$PKGBASE.deb"
+dpkg-deb --root-owner-group --build "$OUT/debdata" "$DEB" >/dev/null
   ( cd "$OUT" && sha256sum "$(basename "$DEB")" > "$(basename "$DEB").sha256" )
 
   PAC="$PKGBASE.pkg.tar.xz"
