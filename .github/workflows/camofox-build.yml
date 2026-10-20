@@ -102,7 +102,7 @@ jobs:
           set -eu
           # Rolling "latest" release: clobber-upload keeps storage constant.
           if gh release view bionic-latest >/dev/null 2>&1; then
-            gh release upload bionic-latest camofox-out-cfg/camoufox-*.tar.* camofox-out-cfg/camoufox-*.deb camofox-out-cfg/camoufox-*.zip camofox-out-cfg/camoufox-*.sha256 --clobber
+            gh release upload bionic-latest camofox-out-cfg/camoufox-*.tar* camofox-out-cfg/camoufox-*.deb* camofox-out-cfg/camoufox-*.zip* --clobber
           else
             gh release create bionic-latest \
               --title "Camoufox — Bionic native (rolling latest)" \

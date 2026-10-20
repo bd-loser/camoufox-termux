@@ -334,7 +334,7 @@ if [ "$RC_B" = 0 ] && [ -n "$BIN" ]; then
   fi
   [ -f "$STAGE/application.ini" ] || { echo "application.ini missing after extraction" >&2; ls -la "$RAW" >&2; exit 1; }
   VFILE="$STAGE/application.ini"
-  DEBVER="$(grep -m1 '^Version=' "$VFILE" | cut -d= -f2 | sed 's/-/~/; s/beta.*/b/')"
+  DEBVER="$(grep -m1 '^Version=' "$VFILE" | cut -d= -f2 | sed 's/-beta\./b/')"
   [ -n "$DEBVER" ] || DEBVER="0.0"
   PKGBASE="$OUT/camoufox-$DEBVER-aarch64"
 
