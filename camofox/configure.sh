@@ -23,8 +23,8 @@ echo "deb https://packages.termux.dev/apt/termux-main stable main" > "$PREFIX_DI
 apt update -y
 # Compiler/rust/node from termux (no rustup anywhere in this pipeline).
 pkg install -y make python git curl tar xz-utils clang rust nodejs-lts pkg-config \
-  binutils cbindgen-bin ccache >/dev/null 2>&1 || \
-  apt install -y make python git curl tar xz-utils clang rust nodejs-lts pkg-config binutils ccache
+  binutils cbindgen-bin ccache zip >/dev/null 2>&1 || \
+  apt install -y make python git curl tar xz-utils clang rust nodejs-lts pkg-config binutils ccache zip
 # System libs the configure-time checks need (mirrors TERMUX_PKG_DEPENDS/DEPENDS
 # of x11-packages/firefox, trimmed to configure-relevant ones). gtk3/nspr/nss
 # and friends live in the x11 repo.
@@ -405,6 +405,9 @@ chmod 755 camoufox-bin
 echo "installed (zip). run: ./camoufox-bin"
 IEOF
   chmod 755 "$STAGE/install.sh"
+  # zip-format step needs the zip CLI; rolling images occasionally omit it
+  command -v zip >/dev/null 2>&1 || { pkg install -y zip >/dev/null 2>&1 || apt install -y zip; }
+  command -v zip >/dev/null 2>&1 || { echo "FATAL: zip CLI unavailable" >&2; ls -la "$OUT"/camoufox-*; exit 0; }
   ( cd "$STAGE" && zip -qr9 "$ZIPB" . )
   ( cd "$OUT" && sha256sum "$(basename "$ZIPB")" > "$(basename "$ZIPB").sha256" )
 
