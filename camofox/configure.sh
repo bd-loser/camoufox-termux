@@ -345,15 +345,15 @@ if [ "$RC_B" = 0 ] && [ -n "$BIN" ]; then
   DEBTREE="$OUT/debtree"
   PT="$DEBTREE/data/data/com.termux/files/usr"
   rm -rf "$DEBTREE"; mkdir -p "$PT/opt/camoufox" "$PT/bin" "$DEBTREE/DEBIAN"
-  docker chmod 0755 "$DEBTREE/data" "$DEBTREE/data/data" "$DEBTREE/data/data/com.termux"     "$DEBTREE/data/data/com.termux/files" "$PT" "$DEBTREE/DEBIAN" 2>/dev/null \
-    || true
+  chmod 0755 "$DEBTREE/data" "$DEBTREE/data/data" "$DEBTREE/data/data/com.termux" \
+    "$DEBTREE/data/data/com.termux/files" "$PT" "$DEBTREE/DEBIAN"
   cp -a "$STAGE/." "$PT/opt/camoufox/"
   cat > "$PT/bin/camoufox" <<'WEOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec "$PREFIX/opt/camoufox/camoufox-bin" "$@"
 WEOF
   chmod 0755 "$PT/bin/camoufox"
-  docker chmod 0755 "$PT/opt" "$PT/bin" "$PT/opt/camoufox" 2>/dev/null || true
+  chmod 0755 "$PT/opt" "$PT/bin" "$PT/opt/camoufox"
   ISZ="$(du -sk "$PT/opt/camoufox" | cut -f1)"
   {
     echo "Package: camoufox"
