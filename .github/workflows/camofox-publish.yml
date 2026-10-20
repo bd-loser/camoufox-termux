@@ -10,6 +10,10 @@ on:
 
 permissions:
   contents: write
+  actions: read
+
+env:
+  GH_REPO: ${{ github.repository }}
 
 jobs:
   publish:
