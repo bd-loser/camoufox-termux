@@ -38,7 +38,10 @@ jobs:
         run: |
           set -eu
           # duplicate args to gh = HTTP 422 (asset already exists); sort -u kills it
-          FILES=$(find rel -type f -name 'camoufox-*' | sort -u)
+          # flatten: artifact globs overlap, same basename may arrive twice in
+          # different dirs; gh keys assets by basename => 422 already exists
+          find rel -mindepth 2 -type f -exec mv -f {} rel/ \;
+          FILES=$(find rel -maxdepth 1 -type f -name 'camoufox-*' | sort -u)
           echo "publishing asset set:"; echo "$FILES"
           if gh release view bionic-latest >/dev/null 2>&1; then
             gh release upload bionic-latest $FILES --clobber
