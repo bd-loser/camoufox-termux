@@ -338,15 +338,16 @@ if [ "$RC_B" = 0 ] && [ -n "$BIN" ]; then
   [ -n "$DEBVER" ] || DEBVER="0.0"
   PKGBASE="$OUT/camoufox-$DEBVER-aarch64"
 
-  mkdir -p "$OUT/debstage/opt/bin"
-  cat > "$OUT/debstage/opt/bin/camoufox" <<'WEOF'
+  # deb payload tree: app data at $PREFIX/opt/camoufox, launcher at $PREFIX/bin
+  DEBTREE="$OUT/debtree"
+  rm -rf "$DEBTREE"; mkdir -p "$DEBTREE/opt/camoufox" "$DEBTREE/opt/bin" "$DEBTREE/DEBIAN"
+  cp -a "$STAGE/." "$DEBTREE/opt/camoufox/"
+  cat > "$DEBTREE/opt/bin/camoufox" <<'WEOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec "$PREFIX/opt/camoufox/camoufox-bin" "$@"
 WEOF
-  chmod 0755 "$OUT/debstage/opt/bin/camoufox"
-
-  CDIR="$OUT/debstage/DEBIAN"; mkdir -p "$CDIR"
-  ISZ="$(du -sk "$STAGE" | cut -f1)"
+  chmod 0755 "$DEBTREE/opt/bin/camoufox"
+  ISZ="$(du -sk "$DEBTREE/opt/camoufox" | cut -f1)"
   {
     echo "Package: camoufox"
     echo "Version: $DEBVER"
@@ -359,14 +360,9 @@ WEOF
     echo "Description: Camoufox anti-fingerprint Firefox fork (Bionic native)"
     echo " Anti-detect Firefox engine built natively for Termux/Bionic aarch64."
     echo " Engine under $PREFIX/opt/camoufox; launcher: camoufox."
-  } > "$CDIR/control"
-  DATA="$OUT/debdata/opt/camoufox"
-mkdir -p "$DATA" "$OUT/debdata/opt/bin"
-cp -a "$STAGE/." "$DATA/"
-
-mv "$OUT/debstage/opt/bin/camoufox" "$OUT/debdata/opt/bin/camoufox" 2>/dev/null || true
-DEB="$PKGBASE.deb"
-dpkg-deb --root-owner-group --build "$OUT/debdata" "$DEB" >/dev/null
+  } > "$DEBTREE/DEBIAN/control"
+  DEB="$PKGBASE.deb"
+  dpkg-deb --root-owner-group --build "$DEBTREE" "$DEB" >/dev/null
   ( cd "$OUT" && sha256sum "$(basename "$DEB")" > "$(basename "$DEB").sha256" )
 
   PAC="$PKGBASE.pkg.tar.xz"

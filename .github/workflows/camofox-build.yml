@@ -49,12 +49,48 @@ jobs:
             bash -c 'export CAMOFOX_PIN="$1" TERMUX_PKGS_PIN="$2" CAMOFOX_BUILD="$3"; shift 3; exec bash /work/camofox/configure.sh' \
             _ "$CAMOFOX_PIN" "$TERMUX_PKGS_PIN" "$CAMOFOX_BUILD"
 
-      - name: Upload build logs + binary
+      - name: Upload deb artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: camofox-build-out
-          path: camofox-out-cfg/
+          name: camoufox-deb
+          path: camofox-out-cfg/*.deb*
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload pacman artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: camoufox-pacman
+          path: camofox-out-cfg/*.pkg.tar.xz*
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload zip artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: camoufox-zip
+          path: camofox-out-cfg/*.zip*
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload tree tar artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: camoufox-tree-tar
+          path: camofox-out-cfg/*.tar*
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: camofox-build-logs
+          path: camofox-out-cfg/*.log
           if-no-files-found: warn
           retention-days: 30
 
