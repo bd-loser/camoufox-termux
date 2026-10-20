@@ -338,16 +338,23 @@ if [ "$RC_B" = 0 ] && [ -n "$BIN" ]; then
   [ -n "$DEBVER" ] || DEBVER="0.0"
   PKGBASE="$OUT/camoufox-$DEBVER-aarch64"
 
-  # deb payload tree: app data at $PREFIX/opt/camoufox, launcher at $PREFIX/bin
+  # deb payload tree: termux debs carry ABSOLUTE paths (./data/data/...),
+  # dpkg does NOT remap '/' to $PREFIX (verified on-device: './opt' =>
+  # "Read-only file system"). Engine: $PREFIX/opt/camoufox, launcher:
+  # $PREFIX/bin/camoufox.
   DEBTREE="$OUT/debtree"
-  rm -rf "$DEBTREE"; mkdir -p "$DEBTREE/opt/camoufox" "$DEBTREE/opt/bin" "$DEBTREE/DEBIAN"
-  cp -a "$STAGE/." "$DEBTREE/opt/camoufox/"
-  cat > "$DEBTREE/opt/bin/camoufox" <<'WEOF'
+  PT="$DEBTREE/data/data/com.termux/files/usr"
+  rm -rf "$DEBTREE"; mkdir -p "$PT/opt/camoufox" "$PT/bin" "$DEBTREE/DEBIAN"
+  docker chmod 0755 "$DEBTREE/data" "$DEBTREE/data/data" "$DEBTREE/data/data/com.termux"     "$DEBTREE/data/data/com.termux/files" "$PT" "$DEBTREE/DEBIAN" 2>/dev/null \
+    || true
+  cp -a "$STAGE/." "$PT/opt/camoufox/"
+  cat > "$PT/bin/camoufox" <<'WEOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec "$PREFIX/opt/camoufox/camoufox-bin" "$@"
 WEOF
-  chmod 0755 "$DEBTREE/opt/bin/camoufox"
-  ISZ="$(du -sk "$DEBTREE/opt/camoufox" | cut -f1)"
+  chmod 0755 "$PT/bin/camoufox"
+  docker chmod 0755 "$PT/opt" "$PT/bin" "$PT/opt/camoufox" 2>/dev/null || true
+  ISZ="$(du -sk "$PT/opt/camoufox" | cut -f1)"
   {
     echo "Package: camoufox"
     echo "Version: $DEBVER"
