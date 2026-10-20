@@ -1,0 +1,47 @@
+name: camofox-publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "camofox-build run id whose artifacts get published"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download camoufox artifacts from build run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          mkdir -p rel
+          for a in camoufox-deb camoufox-pacman camoufox-zip camoufox-tree-tar; do
+            echo "== $a"
+            gh run download "${{ inputs.run_id }}" -n "$a" -D "rel/$a"
+          done
+          find rel -type f -exec ls -la {} +
+
+      - name: Publish to bionic-latest (dedup glob-safe)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN: ${{ inputs.run_id }}
+        run: |
+          set -eu
+          # duplicate args to gh = HTTP 422 (asset already exists); sort -u kills it
+          FILES=$(find rel -type f -name 'camoufox-*' | sort -u)
+          echo "publishing asset set:"; echo "$FILES"
+          if gh release view bionic-latest >/dev/null 2>&1; then
+            gh release upload bionic-latest $FILES --clobber
+          else
+            gh release create bionic-latest --title "Camoufox — Bionic native (rolling latest)"
+            gh release upload bionic-latest $FILES --clobber
+          fi
+          gh release edit bionic-latest --title "Camoufox — Bionic native (rolling latest)" --notes "Native Bionic build for Termux aarch64 (Camoufox ${{ inputs.run_id }}). Formats: tree tar, .deb (pkg/apt), pacman .pkg.tar.xz, zip + .sha256 sidecars. Install guide: docs/INSTALL.md."
+          echo "== release assets";
+          gh release view bionic-latest --json assets -q '.assets[] | .name+"  "+(.size|tostring)'
