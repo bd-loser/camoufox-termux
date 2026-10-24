@@ -47,7 +47,7 @@ mkdir -p ~/browsers/camoufox && tar -xJf camofox-pkg/camoufox-*.tar.xz -C ~/brow
 
 ```bash
 ~/browsers/camoufox/camoufox/camoufox-bin --version
-# Camoufox Camoufox 156.0.1-beta.32   (= runs; Bionic ELF, no glibc)
+# Camoufox Camoufox 156.0.1-beta.32   (= runs; Bionic ELF, no glibc; recorded from the 1.156 build — 1.158 prints its own version)
 ```
 
 `--version` proves the loader + XPCOM. If you get `Couldn't load XPCOM`, the package layout is wrong (must be `camoufox/omni.ja` beside `camoufox-bin`).

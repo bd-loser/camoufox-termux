@@ -9,9 +9,10 @@ GitHub Actions (ubuntu-24.04-arm)
  └─ docker run termux/termux-docker:aarch64
      └─ ci steps in camofox/configure.sh:
         1. toolchain   (termux clang/rust/node, NO rustup)
-        2. fetch       (camoufox @ pinned SHA → Firefox 156.0.1 sdist)
-        3. apply       upstream 46 patches (their scripts/patch.py, rustup stubbed)
-        4. apply       termux patches (26 clean + our rebased 4; 0031 n/a at 156)
+        2. fetch       (camoufox @ pinned SHA → Firefox 158.0 sdist)
+        3. apply       upstream patches (their scripts/patch.py, rustup stubbed)
+        4. apply       termux patches (28 clean incl. 0031 pair + our rebased 4; the 0031 pair is
+                       skipped only on the 156 line — code it fixes exists from 157 on)
         5. checksums   vendored .cargo-checksum.json sweep (must after any crate edit)
         6. wrapper     clang/clang++ → versioned triple (aarch64-unknown-linux-android24),
                        strips incoming --target= and -DANDROID
@@ -25,8 +26,8 @@ GitHub Actions (ubuntu-24.04-arm)
 
 | Thing | Value |
 | --- | --- |
-| Camoufox repo | `6f74fa06df586b8dce7a86c6d2b35a1c13b498b2` (Firefox 156.0.1-beta.32) |
-| termux-packages | `e462d86688f194debff9073440b3b6b72a7a35ae` (x11-packages/firefox recipe) |
+| Camoufox repo | `c9ed439d49948cc8e4335aee6bea1a7b23dc4d2d` (v158.0-beta.40 → Firefox 158.0-beta.33) |
+| termux-packages | `e2b25a170e34052eb30fdb64da0593bc69499ca9` (x11-packages/firefox @ 158.0 era + 0031 ioprio-android fix) |
 | primp sdist | sha256 `82ba17b0…` (if building the ddgs stack) |
 
 Update by editing the workflow env; the scripts refuse un-pinned fetches.

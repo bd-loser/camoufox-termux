@@ -13,7 +13,7 @@ Every Camoufox/Firefox build available for Termux until now worked around one pr
 This project removes the workaround entirely: **we cross nothing and translate nothing — we build Firefox/Camoufox natively with the Termux toolchain** (clang/rust from Termux repos), inside `termux/termux-docker:aarch64` CI, producing a true Bionic-ELF engine.
 
 ```
-Camoufox source (Firefox 156.0.1-beta.32 + anti-detect patches)
+Camoufox source (Firefox 158.0-beta.33 + anti-detect patches)
         │  termux-docker (aarch64) + Termux clang/rust + 35 targeted patches
         ▼
 Bionic ELF · /system/bin/linker64 · runs in Termux · no proot · no root

@@ -103,14 +103,17 @@ TERMUX_PREFIX_UX="${PREFIX:-/data/data/com.termux/files/usr}"
     cd "$WORK/camoufox/browser/$SRC_DIR"
   fi
   # 0003/0012/0023/0028 are replaced by rebased versions in
-  # /work/camofox/termux-patches; 0031 fixes a Firefox-157 regression absent
-  # at 156 (its HWInference speech code does not exist here yet).
+  # /work/camofox/termux-patches. The 0031 pair (webspeech-disabled fix,
+  # ioprio-on-android) patches Firefox-157+ code absent at 156, so they are
+  # skipped only on the 156 line; on 157+ they must apply.
   FAIL=0
   for p in "$TFP"/*.patch; do
     name="$(basename "$p")"
     case "$name" in
-      0031-*) echo "SKIP $name (fixes a Firefox-157+ regression absent at 156 - by design)"; continue;;
       0003-*|0012-*|0023-*|0028-*) echo "SKIP $name (replaced by rebased camofox/termux-patches)"; continue;;
+      0031-*) if [[ "$VERSION" == 156.* ]]; then
+                echo "SKIP $name (fixes a Firefox-157+ regression absent at 156 - by design)"; continue;
+              fi;;
     esac
     # Termux substitutes build variables (@TERMUX_PREFIX@ etc.) in patch
     # files before applying; raw placeholders would end up as literal paths
