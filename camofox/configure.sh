@@ -128,6 +128,43 @@ TERMUX_PREFIX_UX="${PREFIX:-/data/data/com.termux/files/usr}"
     fi
   done
 
+  if [ "${CAMOFOX_REGEN:-0}" = "1" ]; then
+    # Port-support mode (not a build). The replaced termux patches
+    # (0003/0012/0023/0028) are per-version rebases; on a new Firefox line
+    # their contexts drift. Here the tree already carries upstream camoufox
+    # + the clean termux set, so re-applying each ORIGINAL (substituted)
+    # termux patch and diffing worktree-vs-index reproduces the
+    # current-line-intent patch. Full-apply wins ("REGENERATED-*"); partial
+    # rejects are saved for hand-rebase. Exits before configure.
+    step "regen: rebuild replaced patches from termux originals"
+    OUTR=/out/regen
+    mkdir -p "$OUTR"
+    for p in "$TFP"/*.patch; do
+      name="$(basename "$p")"
+      case "$name" in
+        0003-*|0012-*|0023-*|0028-*) ;;
+        *) continue ;;
+      esac
+      sed -e "s|@TERMUX_PREFIX@|$TERMUX_PREFIX_UX|g" \
+          -e "s|@TERMUX_HOST_PLATFORM@|aarch64-linux-android|g" \
+          "$p" > "$WORK/regen-$name"
+      cp "$WORK/regen-$name" "$OUTR/original-$name.subst"
+      git checkout -q -- . 2>/dev/null || true
+      git apply --reject "$WORK/regen-$name" 2> "$OUTR/$name.apply.err" || true
+      if [ -z "$(find . -name '*.rej' -newer "$WORK/regen-$name" -print -quit)" ]; then
+        git diff --binary > "$OUTR/REGENERATED-$name"
+        echo "REGEN OK $name -> /out/regen/REGENERATED-$name"
+      else
+        echo "REGEN NEEDS-HAND-WORK $name (.rej + err saved)"
+      fi
+      find . -name '*.rej' -exec cp {} "$OUTR/" \; 2>/dev/null || true
+      find . -name '*.rej' -delete 2>/dev/null || true
+      git checkout -q -- . 2>/dev/null || true
+    done
+    echo "regen complete: artifacts under /out/regen/"
+    exit 0
+  fi
+
   step "apply our rebased camofox/termux-patches"
   for p in /work/camofox/termux-patches/*.patch; do
     name="$(basename "$p")"

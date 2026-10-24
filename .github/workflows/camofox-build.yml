@@ -7,6 +7,10 @@ on:
         description: "Publish package to the bionic-latest release"
         type: boolean
         default: false
+      regen:
+        description: "Emit regenerated rebased patches (port support) instead of building"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -35,6 +39,7 @@ jobs:
         env:
           CAMOFOX_PIN: "c9ed439d49948cc8e4335aee6bea1a7b23dc4d2d"   # daijro/camoufox v158.0-beta.40 → Firefox 158.0-beta.33
           TERMUX_PKGS_PIN: "e2b25a170e34052eb30fdb64da0593bc69499ca9" # + 0031 ioprio-on-android fix (Firefox 158 patch era)
+          CAMOFOX_REGEN: "${{ inputs.regen && '1' || '0' }}"
           CAMOFOX_BUILD: "1"
         run: |
           set -o pipefail
@@ -82,6 +87,15 @@ jobs:
         with:
           name: camoufox-tree-tar
           path: camofox-out-cfg/*tree.tar*
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload regen patches
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: camofox-regen
+          path: camofox-out-cfg/regen/
           if-no-files-found: warn
           retention-days: 30
 
