@@ -47,9 +47,9 @@ Any edit under `third_party/rust/*` (0033 glslopt, etc.) invalidates `.cargo-che
 | Patch | Why |
 | --- | --- |
 | 0003 | `--custom-rust-target-triple` option + Android-host fallback (`rustc -vV` host = `aarch64-linux-android`) |
-| 0012 | bionic lacks glibc adaptive mutex initializer (regenerated against 156) |
+| 0012 | bionic lacks glibc adaptive mutex initializer (regenerated against 158; `ANDROID`→`__TERMUX__` intent unchanged) |
 | 0023 | disable native HTTPS DNS (API-24) |
-| 0028 | cc crate CFLAGS first-match (156's vendored cc) |
+| 0028 | cc crate CFLAGS first-match (regenerated against 158's vendored cc, `getenv`→`get_env`) |
 | 0032 | mozinfo: `platform.system()=="Android"` branch |
 | 0033 | glslopt endian via `__BYTE_ORDER__` builtins (HAVE_ENDIAN_H unset when rust host is android) |
 | 0034 | js posix thread name → `prctl(PR_GET_NAME)` (bionic API-24 lacks pthread_getname_np) |
