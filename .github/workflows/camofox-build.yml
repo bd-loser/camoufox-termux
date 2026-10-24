@@ -51,8 +51,8 @@ jobs:
             -v "$GITHUB_WORKSPACE/camofox-cache:/ci-cache" \
             -w /work \
             termux/termux-docker:aarch64 \
-            bash -c 'export CAMOFOX_PIN="$1" TERMUX_PKGS_PIN="$2" CAMOFOX_BUILD="$3"; shift 3; exec bash /work/camofox/configure.sh' \
-            _ "$CAMOFOX_PIN" "$TERMUX_PKGS_PIN" "$CAMOFOX_BUILD"
+            bash -c 'export CAMOFOX_PIN="$1" TERMUX_PKGS_PIN="$2" CAMOFOX_BUILD="$3" CAMOFOX_REGEN="$4"; shift 4; exec bash /work/camofox/configure.sh' \
+            _ "$CAMOFOX_PIN" "$TERMUX_PKGS_PIN" "$CAMOFOX_BUILD" "$CAMOFOX_REGEN"
 
       - name: Upload deb artifact
         if: always()
