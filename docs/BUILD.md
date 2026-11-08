@@ -9,9 +9,10 @@ GitHub Actions (ubuntu-24.04-arm)
  └─ docker run termux/termux-docker:aarch64
      └─ ci steps in camofox/configure.sh:
         1. toolchain   (termux clang/rust/node, NO rustup)
-        2. fetch       (camoufox @ pinned SHA → Firefox 156.0.1 sdist)
-        3. apply       upstream 46 patches (their scripts/patch.py, rustup stubbed)
-        4. apply       termux patches (26 clean + our rebased 4; 0031 n/a at 156)
+        2. fetch       (camoufox @ pinned SHA → Firefox 158.0.1 sdist)
+        3. apply       upstream patches (their scripts/patch.py, rustup stubbed)
+        4. apply       termux patches (28 clean incl. 0031 pair + our rebased 4; the 0031 pair is
+                       skipped only on the 156 line — code it fixes exists from 157 on)
         5. checksums   vendored .cargo-checksum.json sweep (must after any crate edit)
         6. wrapper     clang/clang++ → versioned triple (aarch64-unknown-linux-android24),
                        strips incoming --target= and -DANDROID
@@ -25,11 +26,15 @@ GitHub Actions (ubuntu-24.04-arm)
 
 | Thing | Value |
 | --- | --- |
-| Camoufox repo | `6f74fa06df586b8dce7a86c6d2b35a1c13b498b2` (Firefox 156.0.1-beta.32) |
-| termux-packages | `e462d86688f194debff9073440b3b6b72a7a35ae` (x11-packages/firefox recipe) |
+| Camoufox repo | `c3ad3bf2c3c6e93225aa6587246c8b70f9314664` (v158.0.1-beta.41 → Firefox 158.0.1-beta.34) |
+| termux-packages | `7f64c407e01310bb85c25818d7966a878653a7d6` (x11-packages/firefox @ 158.0.1 bump, incl. 0031 pair) |
 | primp sdist | sha256 `82ba17b0…` (if building the ddgs stack) |
 
 Update by editing the workflow env; the scripts refuse un-pinned fetches.
+
+## Release flow
+
+`camofox-publish.yml` takes a green `camofox-build` run id and publishes without rebuilding. Since v2 it creates a **per-version tag** `bionic-v<version>` (from artifact filenames; fails closed on mismatch) for history/rollback/notification, then refreshes the **rolling `bionic-latest`** tag to carry only the current generation (uploads clobbered, older `camoufox-<other-version>-*` assets pruned). `bionic-latest` stays the stable install pointer; per-version tags can re-run the publish to restore any older build.
 
 ## Key mechanics (each was a real failure)
 
@@ -46,9 +51,9 @@ Any edit under `third_party/rust/*` (0033 glslopt, etc.) invalidates `.cargo-che
 | Patch | Why |
 | --- | --- |
 | 0003 | `--custom-rust-target-triple` option + Android-host fallback (`rustc -vV` host = `aarch64-linux-android`) |
-| 0012 | bionic lacks glibc adaptive mutex initializer (regenerated against 156) |
+| 0012 | bionic lacks glibc adaptive mutex initializer (regenerated against 158; `ANDROID`→`__TERMUX__` intent unchanged) |
 | 0023 | disable native HTTPS DNS (API-24) |
-| 0028 | cc crate CFLAGS first-match (156's vendored cc) |
+| 0028 | cc crate CFLAGS first-match (regenerated against 158's vendored cc, `getenv`→`get_env`) |
 | 0032 | mozinfo: `platform.system()=="Android"` branch |
 | 0033 | glslopt endian via `__BYTE_ORDER__` builtins (HAVE_ENDIAN_H unset when rust host is android) |
 | 0034 | js posix thread name → `prctl(PR_GET_NAME)` (bionic API-24 lacks pthread_getname_np) |

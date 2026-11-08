@@ -7,6 +7,10 @@ on:
         description: "Publish package to the bionic-latest release"
         type: boolean
         default: false
+      regen:
+        description: "Emit regenerated rebased patches (port support) instead of building"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -33,8 +37,9 @@ jobs:
 
       - name: configure + build Camoufox for Termux (Bionic)
         env:
-          CAMOFOX_PIN: "6f74fa06df586b8dce7a86c6d2b35a1c13b498b2"
-          TERMUX_PKGS_PIN: "e462d86688f194debff9073440b3b6b72a7a35ae"
+          CAMOFOX_PIN: "c3ad3bf2c3c6e93225aa6587246c8b70f9314664"   # daijro/camoufox v158.0.1-beta.41 → Firefox 158.0.1-beta.34
+          TERMUX_PKGS_PIN: "7f64c407e01310bb85c25818d7966a878653a7d6" # x11/firefox @ 158.0.1 bump (incl. 0031 pair)
+          CAMOFOX_REGEN: "${{ inputs.regen && '1' || '0' }}"
           CAMOFOX_BUILD: "1"
         run: |
           set -o pipefail
@@ -46,8 +51,8 @@ jobs:
             -v "$GITHUB_WORKSPACE/camofox-cache:/ci-cache" \
             -w /work \
             termux/termux-docker:aarch64 \
-            bash -c 'export CAMOFOX_PIN="$1" TERMUX_PKGS_PIN="$2" CAMOFOX_BUILD="$3"; shift 3; exec bash /work/camofox/configure.sh' \
-            _ "$CAMOFOX_PIN" "$TERMUX_PKGS_PIN" "$CAMOFOX_BUILD"
+            bash -c 'export CAMOFOX_PIN="$1" TERMUX_PKGS_PIN="$2" CAMOFOX_BUILD="$3" CAMOFOX_REGEN="$4"; shift 4; exec bash /work/camofox/configure.sh' \
+            _ "$CAMOFOX_PIN" "$TERMUX_PKGS_PIN" "$CAMOFOX_BUILD" "$CAMOFOX_REGEN"
 
       - name: Upload deb artifact
         if: always()
@@ -82,6 +87,15 @@ jobs:
         with:
           name: camoufox-tree-tar
           path: camofox-out-cfg/*tree.tar*
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload regen patches
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: camofox-regen
+          path: camofox-out-cfg/regen/
           if-no-files-found: warn
           retention-days: 30
 

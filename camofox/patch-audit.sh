@@ -1,10 +1,10 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # Phase 1 Camoufox-on-Termux audit. Runs INSIDE termux-docker (aarch64).
 #
-# Applies the Camoufox patch set to a clean Firefox 156.0.1 tree with their
-# own tooling, then applies the Termux Firefox patches on top, recording every
-# pass/fail. No compilation: this measures exactly how far the two patch sets
-# are from coexisting.
+# Applies the Camoufox patch set to a clean Firefox tree (version comes from
+# the pinned camoufox checkout) with their own tooling, then applies the
+# Termux Firefox patches on top, recording every pass/fail. No compilation:
+# this measures exactly how far the two patch sets are from coexisting.
 #
 # Inputs (env):
 #   CAMOFOX_PIN      camoufox repo commit (required, hash-pinned)

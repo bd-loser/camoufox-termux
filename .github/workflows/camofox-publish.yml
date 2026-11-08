@@ -1,3 +1,7 @@
+# v2 publish: per-version tag release (history/rollback/notifications)
+# + rolling bionic-latest refreshed to only the current generation.
+# Version is derived from the asset filenames (camoufox-<ver>-aarch64.*);
+# every camoufox-* asset must agree or the publish fails closed.
 name: camofox-publish
 
 on:
@@ -29,26 +33,75 @@ jobs:
             echo "== $a"
             gh run download "${{ inputs.run_id }}" -n "$a" -D "rel/$a"
           done
-          find rel -type f -exec ls -la {} +
-
-      - name: Publish to bionic-latest (dedup glob-safe)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUN: ${{ inputs.run_id }}
-        run: |
-          set -eu
-          # duplicate args to gh = HTTP 422 (asset already exists); sort -u kills it
           # flatten: artifact globs overlap, same basename may arrive twice in
           # different dirs; gh keys assets by basename => 422 already exists
           find rel -mindepth 2 -type f -exec mv -f {} rel/ \;
+          find rel -type f -exec ls -la {} +
+
+      - name: Derive version + tags (fail closed on mismatch)
+        id: ver
+        run: |
+          set -eu
+          # asset names look like camoufox-158.0.1b34-aarch64.deb(.sha256)
+          first=$(find rel -maxdepth 1 -type f -name 'camoufox-*' | sort | head -1)
+          base=$(basename "$first")
+          VERSION=${base#camoufox-}
+          VERSION=${VERSION%%-aarch64*}
+          for f in rel/camoufox-*; do
+            b=$(basename "$f")
+            v=${b#camoufox-}
+            v=${v%%-aarch64*}
+            if [ "$v" != "$VERSION" ]; then
+              echo "error: version mismatch in artifact set: $b vs $VERSION" >&2
+              exit 1
+            fi
+          done
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=bionic-v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Publish per-version release (bionic-v<version>)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -eu
           FILES=$(find rel -maxdepth 1 -type f -name 'camoufox-*' | sort -u)
           echo "publishing asset set:"; echo "$FILES"
-          if gh release view bionic-latest >/dev/null 2>&1; then
-            gh release upload bionic-latest $FILES --clobber
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" $FILES --clobber
           else
-            gh release create bionic-latest --title "Camoufox — Bionic native (rolling latest)"
-            gh release upload bionic-latest $FILES --clobber
+            gh release create "$TAG" \
+              --title "Camoufox bionic $VERSION" \
+              --notes "Bionic-native Camoufox for Termux aarch64 — Firefox $VERSION. Formats: tree tar, .deb (pkg/apt), pacman .pkg.tar.xz, zip + .sha256 sidecars. Verify the sidecar (sha256sum -c). Install guide: docs/INSTALL.md." \
+              $FILES
           fi
-          gh release edit bionic-latest --title "Camoufox — Bionic native (rolling latest)" --notes "Native Bionic build for Termux aarch64 (Camoufox ${{ inputs.run_id }}). Formats: tree tar, .deb (pkg/apt), pacman .pkg.tar.xz, zip + .sha256 sidecars. Install guide: docs/INSTALL.md."
-          echo "== release assets";
+
+      - name: Refresh bionic-latest (clobber current generation, drop stale)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -eu
+          FILES=$(find rel -maxdepth 1 -type f -name 'camoufox-*' | sort -u)
+          if ! gh release view bionic-latest >/dev/null 2>&1; then
+            gh release create bionic-latest \
+              --title "Camoufox — Bionic native (rolling latest)" \
+              --notes "Rolling latest build of the Bionic-native Camoufox port. See the pinned bionic-v<version> tag for release history."
+          fi
+          gh release upload bionic-latest $FILES --clobber
+          # drop assets from older generations so installs are unambiguous
+          while IFS= read -r asset; do
+            [ -n "$asset" ] || continue
+            if [ "${asset#camoufox-}" != "$asset" ] \
+               && [ "${asset#camoufox-$VERSION-}" == "$asset" ]; then
+              echo "pruning stale asset: $asset"
+              gh release delete-asset bionic-latest "$asset" -y
+            fi
+          done < <(gh release view bionic-latest --json assets -q '.assets[].name')
+          gh release edit bionic-latest \
+            --title "Camoufox — Bionic native (rolling latest)" \
+            --notes "Native Bionic build for Termux aarch64 — current: $VERSION (per-version tag: $TAG). Formats: tree tar, .deb (pkg/apt), pacman .pkg.tar.xz, zip + .sha256 sidecars. Install guide: docs/INSTALL.md."
+          echo "== release assets"
           gh release view bionic-latest --json assets -q '.assets[] | .name+"  "+(.size|tostring)'
