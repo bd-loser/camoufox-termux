@@ -48,6 +48,7 @@ jobs:
           VERSION=${base#camoufox-}
           VERSION=${VERSION%%-aarch64*}
           for f in rel/camoufox-*; do
+            [ -f "$f" ] || continue   # artifact dirs (camoufox-deb/…) linger after flatten
             b=$(basename "$f")
             v=${b#camoufox-}
             v=${v%%-aarch64*}
