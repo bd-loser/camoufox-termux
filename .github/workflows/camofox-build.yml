@@ -37,8 +37,8 @@ jobs:
 
       - name: configure + build Camoufox for Termux (Bionic)
         env:
-          CAMOFOX_PIN: "c9ed439d49948cc8e4335aee6bea1a7b23dc4d2d"   # daijro/camoufox v158.0-beta.40 → Firefox 158.0-beta.33
-          TERMUX_PKGS_PIN: "e2b25a170e34052eb30fdb64da0593bc69499ca9" # + 0031 ioprio-on-android fix (Firefox 158 patch era)
+          CAMOFOX_PIN: "c3ad3bf2c3c6e93225aa6587246c8b70f9314664"   # daijro/camoufox v158.0.1-beta.41 → Firefox 158.0.1-beta.34
+          TERMUX_PKGS_PIN: "7f64c407e01310bb85c25818d7966a878653a7d6" # x11/firefox @ 158.0.1 bump (incl. 0031 pair)
           CAMOFOX_REGEN: "${{ inputs.regen && '1' || '0' }}"
           CAMOFOX_BUILD: "1"
         run: |

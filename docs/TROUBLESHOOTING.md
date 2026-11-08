@@ -32,7 +32,7 @@ Every build/runtime error encountered while making this port, with verified root
 | `Missing chrome or resource URL: resource:///modules/…` | unpackaged dev layout (no omni.ja) | same — use packaged tar |
 | SIGSEGV in `SharedPrefMap::SharedPrefMap` | broken shm fd (termux patch applied raw — see build table) | fixed pipeline; repackage |
 | `playwright-core: Unsupported platform: android` | playwright refuses `process.platform` != linux | Node preload forcing platform (docs/INSTALL.md) |
-| CLI `--screenshot` hangs (`Helper.js:83`) | juggler double-teardown, **upstream** | use juggler/playwright automation; reported [daijro/camoufox#909](https://github.com/daijro/camoufox/issues/909) |
+| CLI `--screenshot` hangs (`Helper.js:83`) | juggler double-teardown, **upstream** | use juggler/playwright automation; reported [daijro/camoufox#909](https://github.com/daijro/camoufox/issues/909) — upstream reply 2026-11-07: fixed on the merged PR #997 (Firefox 159 juggler rework); lands in the next upstream release, not in v158.0.1-beta.41; reopen if still present there |
 
 ## Environment quirks (termux-docker container)
 

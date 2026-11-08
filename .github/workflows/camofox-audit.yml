@@ -13,10 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Patch-apply audit (camoufox 158 + termux firefox patches)
+      - name: Patch-apply audit (camoufox 158.0.1 + termux firefox patches)
         env:
-          CAMOFOX_PIN: "c9ed439d49948cc8e4335aee6bea1a7b23dc4d2d"   # daijro/camoufox v158.0-beta.40
-          TERMUX_PKGS_PIN: "e2b25a170e34052eb30fdb64da0593bc69499ca9" # Firefox 158 patch era + 0031 ioprio-on-android
+          CAMOFOX_PIN: "c3ad3bf2c3c6e93225aa6587246c8b70f9314664"   # daijro/camoufox v158.0.1-beta.41
+          TERMUX_PKGS_PIN: "7f64c407e01310bb85c25818d7966a878653a7d6" # x11/firefox 158.0.1 patch era
         run: |
           set -o pipefail
           bash camofox/audit-on-runner.sh 2>&1 | tee camofox-audit.log
