@@ -34,7 +34,7 @@ Update by editing the workflow env; the scripts refuse un-pinned fetches.
 
 ## Release flow
 
-`camofox-publish.yml` takes a green `camofox-build` run id and publishes without rebuilding. Since v2 it creates a **per-version tag** `bionic-v<version>` (from artifact filenames; fails closed on mismatch) for history/rollback/notification, then refreshes the **rolling `bionic-latest`** tag to carry only the current generation (uploads clobbered, older `camoufox-<other-version>-*` assets pruned). `bionic-latest` stays the stable install pointer; per-version tags can re-run the publish to restore any older build.
+`camofox-publish.yml` takes a green `camofox-build` run id and publishes without rebuilding. Since v2 it creates a **per-version tag** `bionic-v<version>` (from artifact filenames; fails closed on mismatch) for history/rollback/notification. The rolling **`bionic-latest`** tag additionally accumulates **every** published generation (policy: keep every old + latest); pick a build by the version in the filename. Re-running the publish on any older build restores / re-tags that version idempotently.
 
 ## Key mechanics (each was a real failure)
 

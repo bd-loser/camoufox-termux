@@ -78,7 +78,7 @@ jobs:
               $FILES
           fi
 
-      - name: Refresh bionic-latest (clobber current generation, drop stale)
+      - name: Refresh bionic-latest (accumulates all generations)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.ver.outputs.tag }}
@@ -89,20 +89,13 @@ jobs:
           if ! gh release view bionic-latest >/dev/null 2>&1; then
             gh release create bionic-latest \
               --title "Camoufox — Bionic native (rolling latest)" \
-              --notes "Rolling latest build of the Bionic-native Camoufox port. See the pinned bionic-v<version> tag for release history."
+              --notes "Rolling tag: accumulates every published generation; current: $VERSION. Per-version history: bionic-v<version> tags."
           fi
+          # clobber keys on basename: same-generation re-publish replaces in place,
+          # older generations are intentionally KEPT (policy: keep every old + latest).
           gh release upload bionic-latest $FILES --clobber
-          # drop assets from older generations so installs are unambiguous
-          while IFS= read -r asset; do
-            [ -n "$asset" ] || continue
-            if [ "${asset#camoufox-}" != "$asset" ] \
-               && [ "${asset#camoufox-$VERSION-}" == "$asset" ]; then
-              echo "pruning stale asset: $asset"
-              gh release delete-asset bionic-latest "$asset" -y
-            fi
-          done < <(gh release view bionic-latest --json assets -q '.assets[].name')
           gh release edit bionic-latest \
             --title "Camoufox — Bionic native (rolling latest)" \
-            --notes "Native Bionic build for Termux aarch64 — current: $VERSION (per-version tag: $TAG). Formats: tree tar, .deb (pkg/apt), pacman .pkg.tar.xz, zip + .sha256 sidecars. Install guide: docs/INSTALL.md."
+            --notes "Native Bionic build for Termux aarch64 — current: $VERSION (per-version tag: $TAG). Older generations are kept; pick by version in the filename. Formats: tree tar, .deb (pkg/apt), pacman .pkg.tar.xz, zip + .sha256 sidecars. Install guide: docs/INSTALL.md."
           echo "== release assets"
           gh release view bionic-latest --json assets -q '.assets[] | .name+"  "+(.size|tostring)'
