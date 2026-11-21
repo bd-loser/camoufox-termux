@@ -9,7 +9,7 @@ GitHub Actions (ubuntu-24.04-arm)
  └─ docker run termux/termux-docker:aarch64
      └─ ci steps in camofox/configure.sh:
         1. toolchain   (termux clang/rust/node, NO rustup)
-        2. fetch       (camoufox @ pinned SHA → Firefox 158.0.1 sdist)
+        2. fetch       (camoufox @ pinned SHA → Firefox 159.0.1 sdist)
         3. apply       upstream patches (their scripts/patch.py, rustup stubbed)
         4. apply       termux patches (28 clean incl. 0031 pair + our rebased 4; the 0031 pair is
                        skipped only on the 156 line — code it fixes exists from 157 on)
@@ -26,7 +26,7 @@ GitHub Actions (ubuntu-24.04-arm)
 
 | Thing | Value |
 | --- | --- |
-| Camoufox repo | `c3ad3bf2c3c6e93225aa6587246c8b70f9314664` (v158.0.1-beta.41 → Firefox 158.0.1-beta.34) |
+| Camoufox repo | `340cf16170eaca627711b9dbdd541dbe516b895f` (v159.0-beta.42 → Firefox 159.0.1) |
 | termux-packages | `7f64c407e01310bb85c25818d7966a878653a7d6` (x11-packages/firefox @ 158.0.1 bump, incl. 0031 pair) |
 | primp sdist | sha256 `82ba17b0…` (if building the ddgs stack) |
 
