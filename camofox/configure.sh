@@ -401,7 +401,21 @@ WEOF
     echo "Architecture: aarch64"
     echo "Maintainer: bd-loser <bd-loser@users.noreply.github.com>"
     echo "Installed-Size: $ISZ"
-    echo "Depends: gtk3, libandroid-shmem, libandroid-spawn, libc++"
+    # Depends = what libxul.so's NEEDED set does not get from the gtk3
+    # closure. Verified against `readelf -d libxul.so` plus a recursive
+    # apt-cache depends walk of gtk3 (issue camoufox-termux#1: the .deb
+    # declared only gtk3/libandroid-*/libc++, so a fresh Termux died with
+    # "library libplds4.so not found" from libxul.so):
+    #   x11-repo  gtk3 lives in the x11 repo; without it apt cannot even
+    #             read a candidate for gtk3 and the install is unsatisfiable.
+    #   libnspr   libnspr4/libplc4/libplds4
+    #   libnss    libnss3/libnssutil3/libsmime3/libssl3
+    #   libevent  libevent-2.1
+    #   libvpx    libvpx.so.12
+    #   libwebp   libwebp/libwebpdemux/libsharpyuv (gdk-pixbuf does NOT pull it)
+    # libjpeg-turbo, libxcb, libx11, libffi, zlib, cairo, pango, gdk-pixbuf
+    # and atk (via at-spi2-core) all arrive through gtk3 already.
+    echo "Depends: x11-repo, gtk3, libandroid-shmem, libandroid-spawn, libc++, libwebp, libevent, libvpx, libnspr, libnss"
     echo "Section: web"
     echo "Homepage: https://github.com/bd-loser/camoufox-termux"
     echo "Description: Camoufox anti-fingerprint Firefox fork (Bionic native)"
@@ -424,9 +438,17 @@ builddate = $(date +%s)
 packager = bd-loser
 size = $(du -sk "$PRT/opt" | cut -f1)
 arch = aarch64
+# Mirror of the deb Depends above (pacman has no x11-repo dependency: the
+# x11 repo must be enabled separately there).
 depend = gtk3
 depend = libandroid-shmem
 depend = libandroid-spawn
+depend = libc++
+depend = libwebp
+depend = libevent
+depend = libvpx
+depend = libnspr
+depend = libnss
 EOF
   python3 - "$PRT" > "$PRT/.MTREE" <<'PYM'
 import hashlib, os, sys, time
