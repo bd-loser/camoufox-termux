@@ -1,0 +1,56 @@
+diff --git a/netwerk/protocol/http/WebTransportCertificateVerifier.cpp b/netwerk/protocol/http/WebTransportCertificateVerifier.cpp
+index d305c98..a5030ad 100644
+--- a/netwerk/protocol/http/WebTransportCertificateVerifier.cpp
++++ b/netwerk/protocol/http/WebTransportCertificateVerifier.cpp
+@@ -9,6 +9,12 @@
+ #include "nss/mozpkix/pkixcheck.h"
+ #include "nss/mozpkix/pkixutil.h"
+ 
++// CheckMLDSAParameterSetIsAcceptable/VerifyMLDSASignedData are TrustDomain
++// pure virtuals added by NSS >= 3.134 (bug 2068282, 2026-11-12). A newer
++// system NSS header makes this subclass abstract unless they are overridden.
++// serverCertificateHashes is RSA-PKCS1/ECDSA-only, so mirror the RSA policy.
++#include "nss/nss.h"
++
+ namespace mozilla::psm {
+ 
+ class ServerCertHashesTrustDomain : public mozilla::pkix::TrustDomain {
+@@ -76,6 +82,15 @@ class ServerCertHashesTrustDomain : public mozilla::pkix::TrustDomain {
+   virtual void NoteAuxiliaryExtension(
+       mozilla::pkix::AuxiliaryExtension extension,
+       mozilla::pkix::Input extensionData) override;
++#if defined(NSS_VMAJOR) && (NSS_VMAJOR > 3 || (NSS_VMAJOR == 3 && NSS_VMINOR >= 134))
++  virtual mozilla::pkix::Result CheckMLDSAParameterSetIsAcceptable(
++      mozilla::pkix::EndEntityOrCA endEntityOrCA,
++      mozilla::pkix::MLDSAParameterSet parameterSet) override;
++  virtual mozilla::pkix::Result VerifyMLDSASignedData(
++      mozilla::pkix::Input data, mozilla::pkix::MLDSAParameterSet parameterSet,
++      mozilla::pkix::Input signature,
++      mozilla::pkix::Input subjectPublicKeyInfo) override;
++#endif
+ };
+ 
+ mozilla::pkix::Result ServerCertHashesTrustDomain::FindIssuer(
+@@ -188,6 +203,22 @@ void ServerCertHashesTrustDomain::NoteAuxiliaryExtension(
+   MOZ_ASSERT_UNREACHABLE("not expecting this to be called");
+ }
+ 
++#if defined(NSS_VMAJOR) && (NSS_VMAJOR > 3 || (NSS_VMAJOR == 3 && NSS_VMINOR >= 134))
++mozilla::pkix::Result ServerCertHashesTrustDomain::CheckMLDSAParameterSetIsAcceptable(
++    mozilla::pkix::EndEntityOrCA endEntityOrCA,
++    mozilla::pkix::MLDSAParameterSet parameterSet) {
++  return mozilla::pkix::Result::ERROR_UNSUPPORTED_KEYALG;
++}
++
++mozilla::pkix::Result ServerCertHashesTrustDomain::VerifyMLDSASignedData(
++    mozilla::pkix::Input data, mozilla::pkix::MLDSAParameterSet parameterSet,
++    mozilla::pkix::Input signature,
++    mozilla::pkix::Input subjectPublicKeyInfo) {
++  MOZ_ASSERT_UNREACHABLE("not expected to be called");
++  return mozilla::pkix::Result::FATAL_ERROR_LIBRARY_FAILURE;
++}
++#endif
++
+ }  // namespace mozilla::psm
+ 
+ namespace mozilla::net {

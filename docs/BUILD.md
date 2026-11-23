@@ -60,6 +60,7 @@ Any edit under `third_party/rust/*` (0033 glslopt, etc.) invalidates `.cargo-che
 | 0041 | glslopt endian via `__BYTE_ORDER__` builtins (HAVE_ENDIAN_H unset when rust host is android) |
 | 0042 | js posix thread name → `prctl(PR_GET_NAME)` (bionic API-24 lacks pthread_getname_np) |
 | 0043 | nsLocalFile lutimes probe lies under `-D_GNU_SOURCE` + bionic (guard `!defined(__ANDROID_API__)`) |
+| 0044 | WebTransport `ServerCertHashesTrustDomain`: add NSS>=3.134 ML-DSA TrustDomain overrides (system NSS newer than 159 → subclass was abstract) |
 
 ### mozconfig
 `termux.mozconfig` mirrors termux-packages' firefox template (system libs from Termux repos, `--target=@…@`, `--disable-jemalloc/…`, `--enable-mobile-optimize`) **minus** `--with-system-icu` (namespace rename breaks intl code; bundled ICU is upstream-default), **plus** a persistent objdir (`/ci-cache/objdir`) and `--disable-bootstrap`.
