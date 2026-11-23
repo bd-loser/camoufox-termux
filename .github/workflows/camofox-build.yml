@@ -11,6 +11,10 @@ on:
         description: "Emit regenerated rebased patches (port support) instead of building"
         type: boolean
         default: false
+      configure_only:
+        description: "Stop after mach configure (cheap port validation)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -40,7 +44,7 @@ jobs:
           CAMOFOX_PIN: "f24d59ce091bb6a8abdb69a9a1943cba501020e9"   # daijro/camoufox v159.0-beta.43 → Firefox 159.0-beta.35 (has the #909 juggler fix)
           TERMUX_PKGS_PIN: "a179df88745ead5edd48cea6e95bee47563d2919" # x11/firefox 159.0.1 bump (0018 now replaced by our rebase)
           CAMOFOX_REGEN: "${{ inputs.regen && '1' || '0' }}"
-          CAMOFOX_BUILD: "1"
+          CAMOFOX_BUILD: "${{ inputs.configure_only && '0' || '1' }}"
         run: |
           set -o pipefail
           mkdir -p camofox-out-cfg && chmod 0777 camofox-out-cfg

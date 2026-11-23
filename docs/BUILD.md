@@ -16,7 +16,8 @@ GitHub Actions (ubuntu-24.04-arm)
         5. checksums   vendored .cargo-checksum.json sweep (must after any crate edit)
         6. wrapper     clang/clang++ → versioned triple (aarch64-unknown-linux-android24),
                        strips incoming --target= and -DANDROID
-        7. mozconfig   base.mozconfig + termux.mozconfig (see below)
+        7. mozconfig   base.mozconfig + termux.mozconfig; 159's cross-PGO
+                       options are stripped (x86_64 profile is arch/ABI-wrong here)
         8. configure   ./mach configure            (~1 min, exit 0)
         9. build       ./mach build -j4            (~35–70 min cold; ccache-assisted)
        10. package     ./mach package              (omni.ja + tar.xz + sha256)

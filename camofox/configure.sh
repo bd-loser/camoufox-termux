@@ -276,6 +276,14 @@ sed -e "s|@TERMUX_HOST_PLATFORM@|${TERMUX_HOST_PLATFORM}|g" \
 # base.mozconfig lives at browser/assets/base.mozconfig
 cat ../assets/base.mozconfig "$WORK/termux-sub.mozconfig" > mozconfig
 [ "$CCACHE_OK" = 1 ] || sed -i '/^ac_add_options --with-ccache/d' mozconfig
+# 159's base.mozconfig always enables cross-PGO against Mozilla's x86_64
+# profile ($CAMOUFOX_PGO_PROFILE via their scripts/pgo.py, which this pipeline
+# never runs). A PGO profile is arch/ABI-specific; the x86_64-linux profile is
+# meaningless for an aarch64-android/Bionic build and configure aborts on the
+# missing path. Drop the profile options; keep the LTO/rust-simd lines.
+sed -i -e '/^ac_add_options --enable-profile-use=/d' \
+       -e '/^ac_add_options --with-pgo-profile-path=/d' \
+       -e '/^ac_add_options --with-pgo-jarlog=/d' mozconfig
 # Persist the objdir through the /ci-cache mount: warm runs skip recompiling
 # everything (ccache replays into a live tree; rust fragments stay).
 if [ -d /ci-cache ]; then
