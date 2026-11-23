@@ -15,6 +15,10 @@ on:
         description: "Stop after mach configure (cheap port validation)"
         type: boolean
         default: false
+      diag:
+        description: "Dump patched-tree pkix/TrustDomain diagnostics and exit (cheap)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -44,6 +48,7 @@ jobs:
           CAMOFOX_PIN: "f24d59ce091bb6a8abdb69a9a1943cba501020e9"   # daijro/camoufox v159.0-beta.43 → Firefox 159.0-beta.35 (has the #909 juggler fix)
           TERMUX_PKGS_PIN: "a179df88745ead5edd48cea6e95bee47563d2919" # x11/firefox 159.0.1 bump (0018 now replaced by our rebase)
           CAMOFOX_REGEN: "${{ inputs.regen && '1' || '0' }}"
+          CAMOFOX_DIAG: "${{ inputs.diag && '1' || '0' }}"
           CAMOFOX_BUILD: "${{ inputs.configure_only && '0' || '1' }}"
         run: |
           set -o pipefail
@@ -55,8 +60,8 @@ jobs:
             -v "$GITHUB_WORKSPACE/camofox-cache:/ci-cache" \
             -w /work \
             termux/termux-docker:aarch64 \
-            bash -c 'export CAMOFOX_PIN="$1" TERMUX_PKGS_PIN="$2" CAMOFOX_BUILD="$3" CAMOFOX_REGEN="$4"; shift 4; exec bash /work/camofox/configure.sh' \
-            _ "$CAMOFOX_PIN" "$TERMUX_PKGS_PIN" "$CAMOFOX_BUILD" "$CAMOFOX_REGEN"
+            bash -c 'export CAMOFOX_PIN="$1" TERMUX_PKGS_PIN="$2" CAMOFOX_BUILD="$3" CAMOFOX_REGEN="$4" CAMOFOX_DIAG="$5"; shift 5; exec bash /work/camofox/configure.sh' \
+            _ "$CAMOFOX_PIN" "$TERMUX_PKGS_PIN" "$CAMOFOX_BUILD" "$CAMOFOX_REGEN" "$CAMOFOX_DIAG"
 
       - name: Upload deb artifact
         if: always()
@@ -100,6 +105,15 @@ jobs:
         with:
           name: camofox-regen
           path: camofox-out-cfg/regen/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload diag
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: camofox-diag
+          path: camofox-out-cfg/diag/
           if-no-files-found: warn
           retention-days: 30
 

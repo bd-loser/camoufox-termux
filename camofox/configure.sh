@@ -176,6 +176,36 @@ TERMUX_PREFIX_UX="${PREFIX:-/data/data/com.termux/files/usr}"
   done
   [ "$FAIL" = 0 ] || { echo "error: termux-patches did not apply; aborting before configure" >&2; exit 1; }
 
+  if [ "${CAMOFOX_DIAG:-0}" = "1" ]; then
+    # Port-support diagnostic (not a build): dump the pkix TrustDomain
+    # interface and its WebTransport subclass *as the patched tree sees them*
+    # to explain vtable/abstract-class errors without a 50-min compile.
+    step "diag: WebTransportCertificateVerifier vs TrustDomain"
+    OUTD=/out/diag; mkdir -p "$OUTD"
+    PKIX=security/nss/lib/mozpkix/include/pkix/pkixtypes.h
+    WTCV=netwerk/protocol/http/WebTransportCertificateVerifier.cpp
+    echo "--- base TrustDomain virtuals ($PKIX):" | tee "$OUTD/diag.txt"
+    awk '/class TrustDomain/,/^};/' "$PKIX" \
+      | grep -oE "virtual (Result|void) [A-Za-z0-9_]+\(" | sed 's/.* //;s/($//' \
+      | sort > "$OUTD/base-virtuals.txt"
+    tee -a "$OUTD/diag.txt" < "$OUTD/base-virtuals.txt"
+    echo "--- overrides in $WTCV:" | tee -a "$OUTD/diag.txt"
+    grep -oE "Result ServerCertHashesTrustDomain::[A-Za-z0-9_]+\(|void ServerCertHashesTrustDomain::[A-Za-z0-9_]+\(" "$WTCV" \
+      | sed 's/.*:://;s/($//' | sort > "$OUTD/overrides.txt"
+    tee -a "$OUTD/diag.txt" < "$OUTD/overrides.txt"
+    echo "--- base virtuals NOT overridden (the abstract-class cause, if any):" | tee -a "$OUTD/diag.txt"
+    comm -23 "$OUTD/base-virtuals.txt" "$OUTD/overrides.txt" | tee -a "$OUTD/diag.txt"
+    echo "--- WTCV lines 225..236:" | tee -a "$OUTD/diag.txt"
+    sed -n '225,236p' "$WTCV" | tee -a "$OUTD/diag.txt"
+    echo "--- pkixtypes.h sha256 + guards:" | tee -a "$OUTD/diag.txt"
+    sha256sum "$PKIX" | tee -a "$OUTD/diag.txt"
+    grep -nE "define MOZ_NO_HTTPS_IMPL|#if|#ifdef" "$PKIX" | head -20 | tee -a "$OUTD/diag.txt"
+    cp "$PKIX" "$OUTD/pkixtypes.h.full" 2>/dev/null || true
+    cp "$WTCV" "$OUTD/WebTransportCertificateVerifier.cpp.full" 2>/dev/null || true
+    echo "diag complete: artifacts under /out/diag/"
+    exit 0
+  fi
+
   step "refresh vendored cargo checksums (patches edit vendored crates)"
   # Cargo verifies every file listed in a vendored crate's
   # .cargo-checksum.json; patches that touch third_party/rust/* must update
