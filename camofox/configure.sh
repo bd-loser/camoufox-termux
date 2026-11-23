@@ -110,7 +110,7 @@ TERMUX_PREFIX_UX="${PREFIX:-/data/data/com.termux/files/usr}"
   for p in "$TFP"/*.patch; do
     name="$(basename "$p")"
     case "$name" in
-      0003-*|0012-*|0023-*|0028-*) echo "SKIP $name (replaced by rebased camofox/termux-patches)"; continue;;
+      0003-*|0012-*|0018-*|0023-*|0028-*) echo "SKIP $name (replaced by rebased camofox/termux-patches)"; continue;;
       0031-*) if [[ "$VERSION" == 156.* ]]; then
                 echo "SKIP $name (fixes a Firefox-157+ regression absent at 156 - by design)"; continue;
               fi;;
@@ -142,7 +142,7 @@ TERMUX_PREFIX_UX="${PREFIX:-/data/data/com.termux/files/usr}"
     for p in "$TFP"/*.patch; do
       name="$(basename "$p")"
       case "$name" in
-        0003-*|0012-*|0023-*|0028-*) ;;
+        0003-*|0012-*|0018-*|0023-*|0028-*) ;;
         *) continue ;;
       esac
       sed -e "s|@TERMUX_PREFIX@|$TERMUX_PREFIX_UX|g" \

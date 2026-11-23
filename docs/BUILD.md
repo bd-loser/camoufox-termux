@@ -9,10 +9,10 @@ GitHub Actions (ubuntu-24.04-arm)
  └─ docker run termux/termux-docker:aarch64
      └─ ci steps in camofox/configure.sh:
         1. toolchain   (termux clang/rust/node, NO rustup)
-        2. fetch       (camoufox @ pinned SHA → Firefox 159.0.1 sdist)
+        2. fetch       (camoufox @ pinned SHA → Firefox 159.0 sdist)
         3. apply       upstream patches (their scripts/patch.py, rustup stubbed)
-        4. apply       termux patches (28 clean incl. 0031 pair + our rebased 4; the 0031 pair is
-                       skipped only on the 156 line — code it fixes exists from 157 on)
+        4. apply       termux patches (clean set + our rebased 5: 0003/0012/0018/0023/0028;
+                       the 0031 pair is skipped only on the 156 line)
         5. checksums   vendored .cargo-checksum.json sweep (must after any crate edit)
         6. wrapper     clang/clang++ → versioned triple (aarch64-unknown-linux-android24),
                        strips incoming --target= and -DANDROID
@@ -26,8 +26,8 @@ GitHub Actions (ubuntu-24.04-arm)
 
 | Thing | Value |
 | --- | --- |
-| Camoufox repo | `340cf16170eaca627711b9dbdd541dbe516b895f` (v159.0-beta.42 → Firefox 159.0.1) |
-| termux-packages | `7f64c407e01310bb85c25818d7966a878653a7d6` (x11-packages/firefox @ 158.0.1 bump, incl. 0031 pair) |
+| Camoufox repo | `f24d59ce091bb6a8abdb69a9a1943cba501020e9` (v159.0-beta.43 → Firefox 159.0-beta.35, incl. the #909 juggler fix) |
+| termux-packages | `a179df88745ead5edd48cea6e95bee47563d2919` (x11-packages/firefox @ 159.0.1 bump; 0018 replaced) |
 | primp sdist | sha256 `82ba17b0…` (if building the ddgs stack) |
 
 Update by editing the workflow env; the scripts refuse un-pinned fetches.
@@ -51,13 +51,14 @@ Any edit under `third_party/rust/*` (0033 glslopt, etc.) invalidates `.cargo-che
 | Patch | Why |
 | --- | --- |
 | 0003 | `--custom-rust-target-triple` option + Android-host fallback (`rustc -vV` host = `aarch64-linux-android`) |
-| 0012 | bionic lacks glibc adaptive mutex initializer (regenerated against 158; `ANDROID`→`__TERMUX__` intent unchanged) |
+| 0012 | bionic lacks glibc adaptive mutex initializer (regenerated against 158/159; `ANDROID`→`__TERMUX__` intent unchanged) |
 | 0023 | disable native HTTPS DNS (API-24) |
 | 0028 | cc crate CFLAGS first-match (regenerated against 158's vendored cc, `getenv`→`get_env`) |
-| 0032 | mozinfo: `platform.system()=="Android"` branch |
-| 0033 | glslopt endian via `__BYTE_ORDER__` builtins (HAVE_ENDIAN_H unset when rust host is android) |
-| 0034 | js posix thread name → `prctl(PR_GET_NAME)` (bionic API-24 lacks pthread_getname_np) |
-| 0035 | nsLocalFile lutimes probe lies under `-D_GNU_SOURCE` + bionic (guard `!defined(__ANDROID_API__)`) |
+| 0018 | glxtest `get_pci_status()` off on Termux (regenerated: 159's gfx rework moved the call site) |
+| 0040 | mozinfo: `platform.system()=="Android"` branch |
+| 0041 | glslopt endian via `__BYTE_ORDER__` builtins (HAVE_ENDIAN_H unset when rust host is android) |
+| 0042 | js posix thread name → `prctl(PR_GET_NAME)` (bionic API-24 lacks pthread_getname_np) |
+| 0043 | nsLocalFile lutimes probe lies under `-D_GNU_SOURCE` + bionic (guard `!defined(__ANDROID_API__)`) |
 
 ### mozconfig
 `termux.mozconfig` mirrors termux-packages' firefox template (system libs from Termux repos, `--target=@…@`, `--disable-jemalloc/…`, `--enable-mobile-optimize`) **minus** `--with-system-icu` (namespace rename breaks intl code; bundled ICU is upstream-default), **plus** a persistent objdir (`/ci-cache/objdir`) and `--disable-bootstrap`.

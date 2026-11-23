@@ -37,8 +37,8 @@ jobs:
 
       - name: configure + build Camoufox for Termux (Bionic)
         env:
-          CAMOFOX_PIN: "340cf16170eaca627711b9dbdd541dbe516b895f"   # daijro/camoufox v159.0-beta.42 → Firefox 159.0.1
-          TERMUX_PKGS_PIN: "a179df88745ead5edd48cea6e95bee47563d2919" # x11/firefox 159.0.1 bump
+          CAMOFOX_PIN: "f24d59ce091bb6a8abdb69a9a1943cba501020e9"   # daijro/camoufox v159.0-beta.43 → Firefox 159.0-beta.35 (has the #909 juggler fix)
+          TERMUX_PKGS_PIN: "a179df88745ead5edd48cea6e95bee47563d2919" # x11/firefox 159.0.1 bump (0018 now replaced by our rebase)
           CAMOFOX_REGEN: "${{ inputs.regen && '1' || '0' }}"
           CAMOFOX_BUILD: "1"
         run: |
