@@ -18,8 +18,8 @@ Every build/runtime error encountered while making this port, with verified root
 | `undefined symbol: __hash_memory`-class, link of libmozgtk | elf-hack inject objects are glibc-built | `--disable-elf-hack` |
 | `undefined symbol: operator new/delete` (gmp-clearkey) | bare ld.lld plugin .so links miss libc++ | target `LDFLAGS += -lc++_shared` |
 | `undefined symbol: sin/cos/exp2` (liblgpllibs) | FF android links assume NDK `libm`; Termux keeps it in ndk-multilib | `apt install ndk-multilib`; `LDFLAGS += -L… -l:libm.a` (static — modern Android has no system libm.so) |
-| `undefined symbol: lutimes` (libxul) | `-D_GNU_SOURCE` makes Bionic *declare* lutimes (probe lies: HAVE_LUTIMES) but libc-24 doesn't export it | 0035: `#if HAVE_LUTIMES && !defined(__ANDROID_API__)` (prctl/utimes fallback in FF) |
-| `error: use of undeclared identifier 'pthread_getname_np'` | Bionic API-24 header hides declaration; HAVE_ probe still defined | 0034: prctl(`PR_GET_NAME`) path |
+| `undefined symbol: lutimes` (libxul) | `-D_GNU_SOURCE` makes Bionic *declare* lutimes (probe lies: HAVE_LUTIMES) but libc-24 doesn't export it | 0043: `#if HAVE_LUTIMES && !defined(__ANDROID_API__)` (prctl/utimes fallback in FF) |
+| `error: use of undeclared identifier 'pthread_getname_np'` | Bionic API-24 header hides declaration; HAVE_ probe still defined | 0042: prctl(`PR_GET_NAME`) path |
 | `no member named 'Locale' in namespace 'icu_78'` | system-ICU renames namespaces; FF intl expects bundled layout | drop `--with-system-icu` (bundled ICU = upstream default) |
 | `SharedPrefMap` SIGSEGV at socket-process launch | termux patch 0009 applied **raw**: literal `/@TERMUX_PREFIX@/tmp/…` shm path | substitute `@TERMUX_PREFIX@` at patch-apply time |
 | `Redirect has exceeded the redirect limit` / maturin re-checksum | upstream patch placeholders applied raw — generalization of the above | same substitution step |

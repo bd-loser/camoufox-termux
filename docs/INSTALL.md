@@ -1,8 +1,15 @@
-# Install & Verify
+# Install Camoufox on Termux
 
-Camoufox for Termux is a **native Bionic build** (no glibc, no proot) — a real
-Bionic-ELF Firefox engine. Install through the signed Termux APT repository;
-everything else on this page is fallback.
+> Native Bionic build of the anti-fingerprint Firefox engine — **no glibc, no
+> proot, no root**. This page covers install, verification, automation, and
+> fresh-Termux fixes.
+
+**Quick jump:** [Requirements](#requirements) ·
+[Easy install](#1-easy-install-recommended) · [Verify](#2-verify-it-really-works) ·
+[Playwright](#3-playwright-on-termux) · [Fallbacks](#4-other-install-methods-fallbacks) ·
+[Troubleshooting](#5-troubleshooting-fresh-termux)
+
+---
 
 ## Requirements
 
@@ -101,11 +108,19 @@ tar/zip installs (see below).
 
 ## 3. Playwright on Termux
 
-playwright-core refuses `process.platform === "android"`; patch the platform at
-Node start:
+Use **`playwright-core@1.62.0`** — newer releases (e.g. 1.65) send a Juggler
+`downloadOptions.legacyInterceptor` field this engine's protocol doesn't
+declare, so the browser fails at launch:
 
 ```bash
-mkdir -p ~/jtest && cd ~/jtest && npm i playwright-core
+mkdir -p ~/jtest && cd ~/jtest
+npm i playwright-core@1.62.0
+```
+
+`playwright-core` refuses `process.platform === "android"`; patch the platform
+at Node start:
+
+```bash
 cat > pw-linux.cjs <<'EOF'
 const os = require('os');
 Object.defineProperty(process, 'platform', { value: 'linux' });
@@ -125,8 +140,9 @@ const { firefox } = require('playwright-core');
     },
   });
   const page = await b.newPage();
-  await page.goto('https://example.org');
-  console.log(await page.title());
+  await page.goto('https://example.org', { waitUntil: 'load' });
+  console.log('title:', await page.title());
+  console.log('h1:', await page.evaluate(() => document.querySelector('h1')?.textContent));
   await page.screenshot({ path: 'shot.png' });
   await b.close();
 })();
@@ -134,7 +150,7 @@ EOF
 NODE_OPTIONS="--require $PWD/pw-linux.cjs" node t.js
 ```
 
-Verified on-device: engine launches, title reads, screenshot PNG written.
+Verified on-device: engine launches, title reads, DOM reads, screenshot PNG written.
 
 ---
 
