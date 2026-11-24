@@ -1,0 +1,12 @@
+--- a/toolkit/xre/gfxtest/glxtest.cpp
++++ b/toolkit/xre/gfxtest/glxtest.cpp
+@@ -1065,7 +1065,9 @@ int childgltest(bool aWayland, bool aHeadless) {
+   log("GLX_TEST: childgltest start\n");
+ 
+   // Get a list of all GPUs from the PCI bus.
++#if !defined(__TERMUX__)
+   get_pci_status();
++#endif
+ 
+   // Claim EGL only when this probe initialized it. Recording TEST_TYPE EGL
+   // after a failed load makes Firefox use EGL anyway, and WebGL then dies in

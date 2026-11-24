@@ -110,7 +110,7 @@ TERMUX_PREFIX_UX="${PREFIX:-/data/data/com.termux/files/usr}"
   for p in "$TFP"/*.patch; do
     name="$(basename "$p")"
     case "$name" in
-      0003-*|0012-*|0023-*|0028-*) echo "SKIP $name (replaced by rebased camofox/termux-patches)"; continue;;
+      0003-*|0012-*|0018-*|0023-*|0028-*) echo "SKIP $name (replaced by rebased camofox/termux-patches)"; continue;;
       0031-*) if [[ "$VERSION" == 156.* ]]; then
                 echo "SKIP $name (fixes a Firefox-157+ regression absent at 156 - by design)"; continue;
               fi;;
@@ -142,7 +142,7 @@ TERMUX_PREFIX_UX="${PREFIX:-/data/data/com.termux/files/usr}"
     for p in "$TFP"/*.patch; do
       name="$(basename "$p")"
       case "$name" in
-        0003-*|0012-*|0023-*|0028-*) ;;
+        0003-*|0012-*|0018-*|0023-*|0028-*) ;;
         *) continue ;;
       esac
       sed -e "s|@TERMUX_PREFIX@|$TERMUX_PREFIX_UX|g" \
@@ -175,6 +175,47 @@ TERMUX_PREFIX_UX="${PREFIX:-/data/data/com.termux/files/usr}"
     fi
   done
   [ "$FAIL" = 0 ] || { echo "error: termux-patches did not apply; aborting before configure" >&2; exit 1; }
+
+  if [ "${CAMOFOX_DIAG:-0}" = "1" ]; then
+    # Port-support diagnostic (not a build): dump the pkix TrustDomain
+    # interface and its WebTransport subclass *as the patched tree sees them*
+    # to explain vtable/abstract-class errors without a 50-min compile.
+    step "diag: WebTransportCertificateVerifier vs TrustDomain"
+    OUTD=/out/diag; mkdir -p "$OUTD"
+    PKIX=security/nss/lib/mozpkix/include/pkix/pkixtypes.h
+    WTCV=netwerk/protocol/http/WebTransportCertificateVerifier.cpp
+    echo "--- base TrustDomain virtuals ($PKIX):" | tee "$OUTD/diag.txt"
+    awk '/class TrustDomain/,/^};/' "$PKIX" \
+      | grep -oE "virtual (Result|void) [A-Za-z0-9_]+\(" | sed 's/.* //;s/($//' \
+      | sort > "$OUTD/base-virtuals.txt"
+    tee -a "$OUTD/diag.txt" < "$OUTD/base-virtuals.txt"
+    echo "--- overrides in $WTCV:" | tee -a "$OUTD/diag.txt"
+    grep -oE "Result ServerCertHashesTrustDomain::[A-Za-z0-9_]+\(|void ServerCertHashesTrustDomain::[A-Za-z0-9_]+\(" "$WTCV" \
+      | sed 's/.*:://;s/($//' | sort > "$OUTD/overrides.txt"
+    tee -a "$OUTD/diag.txt" < "$OUTD/overrides.txt"
+    echo "--- base virtuals NOT overridden (the abstract-class cause, if any):" | tee -a "$OUTD/diag.txt"
+    comm -23 "$OUTD/base-virtuals.txt" "$OUTD/overrides.txt" | tee -a "$OUTD/diag.txt"
+    echo "--- WTCV lines 225..236:" | tee -a "$OUTD/diag.txt"
+    sed -n '225,236p' "$WTCV" | tee -a "$OUTD/diag.txt"
+    echo "--- system nss/mozpkix layout:" | tee -a "$OUTD/diag.txt"
+    find "${TERMUX_PREFIX_UX}/include/nss" -maxdepth 2 -name 'mozpkix*' 2>/dev/null | head | tee -a "$OUTD/diag.txt"
+    echo "--- pkg-config nss cflags:" | tee -a "$OUTD/diag.txt"
+    pkg-config --cflags nss 2>/dev/null | tee -a "$OUTD/diag.txt"
+    echo "--- which pkixtypes.h does a bare include resolve to:" | tee -a "$OUTD/diag.txt"
+    printf '#include "nss/mozpkix/pkixtypes.h"\n' > "$OUTD/probe.cpp"
+    clang++ -E -H -c "$OUTD/probe.cpp" -o /dev/null > "$OUTD/probe.out" 2>&1 || true
+    grep -m3 "pkixtypes.h" "$OUTD/probe.out" | tee -a "$OUTD/diag.txt" || true
+    echo "--- in-tree mozpkix dir:" | tee -a "$OUTD/diag.txt"
+    ls -la security/nss/lib/mozpkix/include/ 2>/dev/null | tee -a "$OUTD/diag.txt" || true
+    ls -la security/nss/lib/mozpkix/include/pkix/ 2>/dev/null | head -5 | tee -a "$OUTD/diag.txt" || true
+    echo "--- pkixtypes.h sha256 + guards:" | tee -a "$OUTD/diag.txt"
+    sha256sum "$PKIX" | tee -a "$OUTD/diag.txt"
+    grep -nE "define MOZ_NO_HTTPS_IMPL|#if|#ifdef" "$PKIX" | head -20 | tee -a "$OUTD/diag.txt"
+    cp "$PKIX" "$OUTD/pkixtypes.h.full" 2>/dev/null || true
+    cp "$WTCV" "$OUTD/WebTransportCertificateVerifier.cpp.full" 2>/dev/null || true
+    echo "diag complete: artifacts under /out/diag/"
+    exit 0
+  fi
 
   step "refresh vendored cargo checksums (patches edit vendored crates)"
   # Cargo verifies every file listed in a vendored crate's
@@ -276,6 +317,34 @@ sed -e "s|@TERMUX_HOST_PLATFORM@|${TERMUX_HOST_PLATFORM}|g" \
 # base.mozconfig lives at browser/assets/base.mozconfig
 cat ../assets/base.mozconfig "$WORK/termux-sub.mozconfig" > mozconfig
 [ "$CCACHE_OK" = 1 ] || sed -i '/^ac_add_options --with-ccache/d' mozconfig
+# 159's base.mozconfig always enables cross-PGO against Mozilla's x86_64
+# profile ($CAMOUFOX_PGO_PROFILE via their scripts/pgo.py, which this pipeline
+# never runs). A PGO profile is arch/ABI-specific; the x86_64-linux profile is
+# meaningless for an aarch64-android/Bionic build and configure aborts on the
+# missing path. Drop the profile options; keep the LTO/rust-simd lines.
+sed -i -e '/^ac_add_options --enable-profile-use=/d' \
+       -e '/^ac_add_options --with-pgo-profile-path=/d' \
+       -e '/^ac_add_options --with-pgo-jarlog=/d' mozconfig
+# System-NSS-vs-firefox mismatch: Termux's rolling libnss (>= 3.134) began
+# shipping an /usr/include/nss/mozpkix directory whose headers add ML-DSA
+# TrustDomain pure virtuals (NSS bug 2068282, 2026-11-12) and which is broken
+# for Firefox's include form anyway ('nss/mozpkix/pkixtypes.h' then cannot find
+# 'mozpkix/Input.h'). pkg-config nss gives '-I/usr/include/nss -I/usr/include',
+# so '/usr/include' wins regardless of our -I ordering. Fix at the filesystem:
+# replace the system dir with the in-tree 159-era interface (what this Firefox
+# line was written against). No flag-ordering dependency.
+SYS_NSS_MOZPKIX="${TERMUX_PREFIX_UX}/include/nss/mozpkix"
+INTREE_MOZPKIX="$(pwd)/security/nss/lib/mozpkix/include/pkix"
+if [ -d "$INTREE_MOZPKIX" ]; then
+  if [ -e "$SYS_NSS_MOZPKIX" ] && [ ! -e "${SYS_NSS_MOZPKIX}.ecc-bak" ]; then
+    mv "$SYS_NSS_MOZPKIX" "${SYS_NSS_MOZPKIX}.ecc-bak" 2>/dev/null || true
+  fi
+  rm -rf "$SYS_NSS_MOZPKIX"
+  ln -s "$INTREE_MOZPKIX" "$SYS_NSS_MOZPKIX"
+  echo "repointed $SYS_NSS_MOZPKIX -> in-tree 159 mozpkix" | tee -a "$OUT/configure.log"
+else
+  echo "WARN: in-tree mozpkix include dir not found; system NSS may be too new" >&2
+fi
 # Persist the objdir through the /ci-cache mount: warm runs skip recompiling
 # everything (ccache replays into a live tree; rust fragments stay).
 if [ -d /ci-cache ]; then
@@ -378,6 +447,47 @@ if [ "$RC_B" = 0 ] && [ -n "$BIN" ]; then
   [ -n "$DEBVER" ] || DEBVER="0.0"
   PKGBASE="$OUT/camoufox-$DEBVER-aarch64"
 
+  # ---- derive runtime Depends from the ELF NEEDED set (issue #1) ----
+  # The .deb once declared a too-small hardcoded list and a fresh Termux died
+  # with "library libplds4.so not found" from libxul.so. Derive it instead so
+  # it cannot drift: scan the engine + libxul.so NEEDED sonames, map each to a
+  # Termux package, drop whatever gtk3 already pulls in transitively.
+  ENGINE="$(find "$STAGE" -maxdepth 1 -type f -name 'camoufox*' | head -1)"
+  LIBXUL="$(find "$STAGE" -name 'libxul.so' | head -1)"
+  NEEDED="$( { readelf -d "$ENGINE" 2>/dev/null; readelf -d "$LIBXUL" 2>/dev/null; } \
+             | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p' | sort -u )"
+  echo "NEEDED sonames ($(echo "$NEEDED" | wc -w)):"; echo "$NEEDED" | tr '\n' ' '; echo
+  # soname -> termux package. Anything absent here is either provided by the
+  # gtk3 closure below or a bionic/ndk system lib we must not depend on.
+  dep_pkg() {
+    case "$1" in
+      libnspr4.so|libplc4.so|libplds4.so)                 echo libnspr ;;
+      libnss3.so|libnssutil3.so|libsmime3.so|libssl3.so) echo libnss ;;
+      libevent-*.so*)                                     echo libevent ;;
+      libvpx.so*)                                         echo libvpx ;;
+      libwebp.so*|libwebpdemux.so*|libsharpyuv.so*)       echo libwebp ;;
+      libgtk-3.so*|libgdk-3.so*|libgdk_pixbuf-2.0.so*)    echo gtk3 ;;
+      libandroid-shmem.so*)                               echo libandroid-shmem ;;
+      libandroid-spawn.so*|libandroid-support.so*)        echo libandroid-spawn ;;
+      libc++_shared.so)                                   echo libc++ ;;
+      # transitively inside the gtk3 closure -> intentionally not declared:
+      libjpeg.so*|libxcb*.so*|libX11*.so*|libffi.so*|libz.so*|libcairo.so*|libpango*.so*|libatk*.so*) echo "" ;;
+      *)                                                  echo "" ;;
+    esac
+  }
+  DEPS_SET=""
+  for so in $NEEDED; do
+    p="$(dep_pkg "$so")"
+    [ -n "$p" ] || continue
+    case " $DEPS_SET " in *" $p "*) ;; *) DEPS_SET="$DEPS_SET $p";; esac
+  done
+  DEPS_SET="${DEPS_SET# }"
+  # Fallback to the known-good closed set if readelf gave us nothing.
+  [ -n "$DEPS_SET" ] || DEPS_SET="gtk3 libandroid-shmem libandroid-spawn libc++ libwebp libevent libnspr libnss"
+  DEPS_DEB="x11-repo, $(echo "$DEPS_SET" | sed 's/ /, /g')"
+  echo "derived Depends (deb): $DEPS_DEB"
+  echo "derived Depends (pacman): $DEPS_SET"
+
   # deb payload tree: termux debs carry ABSOLUTE paths (./data/data/...),
   # dpkg does NOT remap '/' to $PREFIX (verified on-device: './opt' =>
   # "Read-only file system"). Engine: $PREFIX/opt/camoufox, launcher:
@@ -415,7 +525,11 @@ WEOF
     #   libwebp   libwebp/libwebpdemux/libsharpyuv (gdk-pixbuf does NOT pull it)
     # libjpeg-turbo, libxcb, libx11, libffi, zlib, cairo, pango, gdk-pixbuf
     # and atk (via at-spi2-core) all arrive through gtk3 already.
-    echo "Depends: x11-repo, gtk3, libandroid-shmem, libandroid-spawn, libc++, libwebp, libevent, libvpx, libnspr, libnss"
+    # Depends derived above from libxul.so's NEEDED set (issue camoufox-termux#1).
+    # Fixed extra: x11-repo (gtk3 only exists once that repo is enabled).
+    # Skipped as already-transitive via gtk3: libjpeg-turbo, libxcb, libx11,
+    # libffi, zlib, cairo, pango, gdk-pixbuf, atk (via at-spi2-core).
+    echo "Depends: $DEPS_DEB"
     echo "Section: web"
     echo "Homepage: https://github.com/bd-loser/camoufox-termux"
     echo "Description: Camoufox anti-fingerprint Firefox fork (Bionic native)"
@@ -440,15 +554,7 @@ size = $(du -sk "$PRT/opt" | cut -f1)
 arch = aarch64
 # Mirror of the deb Depends above (pacman has no x11-repo dependency: the
 # x11 repo must be enabled separately there).
-depend = gtk3
-depend = libandroid-shmem
-depend = libandroid-spawn
-depend = libc++
-depend = libwebp
-depend = libevent
-depend = libvpx
-depend = libnspr
-depend = libnss
+$(for d in $DEPS_SET; do echo "depend = $d"; done)
 EOF
   python3 - "$PRT" > "$PRT/.MTREE" <<'PYM'
 import hashlib, os, sys, time

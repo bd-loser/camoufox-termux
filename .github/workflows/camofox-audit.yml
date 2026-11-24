@@ -15,7 +15,7 @@ jobs:
 
       - name: Patch-apply audit (camoufox 158.0.1 + termux firefox patches)
         env:
-          CAMOFOX_PIN: "340cf16170eaca627711b9dbdd541dbe516b895f"   # daijro/camoufox v159.0-beta.42
+          CAMOFOX_PIN: "f24d59ce091bb6a8abdb69a9a1943cba501020e9"   # daijro/camoufox v159.0-beta.43
           TERMUX_PKGS_PIN: "a179df88745ead5edd48cea6e95bee47563d2919" # x11/firefox 159.0.1 patch era
         run: |
           set -o pipefail

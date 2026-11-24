@@ -26,7 +26,11 @@ ac_add_options --enable-system-pixman
 # is Camoufox's own default (base.mozconfig has no icu option).
 ac_add_options --with-system-jpeg=@TERMUX_PREFIX@
 ac_add_options --with-system-libevent
-ac_add_options --with-system-libvpx
+# NOTE: --with-system-libvpx deliberately omitted (Termux template had it):
+# Firefox 159 references vpx_mozilla_set_realtime_only, a symbol only Mozilla's
+# libvpx fork defines. Termux ships stock webmproject libvpx, so linking against
+# it dies at libxul.so with "undefined symbol". Build the bundled fork instead
+# (same rationale as bundled ICU below).
 ac_add_options --with-system-nspr
 ac_add_options --with-system-nss
 ac_add_options --with-system-webp

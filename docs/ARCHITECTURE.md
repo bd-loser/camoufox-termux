@@ -29,7 +29,7 @@ The build environment is a lattice: toolchain flavor (Termux clang/rust), wrappe
 
 ```
 1. upstream:  daijro/camoufox patches (46) — via their scripts/patch.py (pinned)
-2. termux:    termux-packages firefox patches (28 of 32 apply at 158; the 0031 pair is skipped only on the 156 line; placeholders substituted)
+2. termux:    termux-packages firefox patches (159 set; 0018 replaced by ours; the 0031 pair is skipped only on the 156 line)
 3. ours:      camofox/termux-patches/ (bionic-module guards, mozinfo, endian, threading…)
 ```
 
