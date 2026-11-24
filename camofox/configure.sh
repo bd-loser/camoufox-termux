@@ -203,9 +203,11 @@ TERMUX_PREFIX_UX="${PREFIX:-/data/data/com.termux/files/usr}"
     pkg-config --cflags nss 2>/dev/null | tee -a "$OUTD/diag.txt"
     echo "--- which pkixtypes.h does a bare include resolve to:" | tee -a "$OUTD/diag.txt"
     printf '#include "nss/mozpkix/pkixtypes.h"\n' > "$OUTD/probe.cpp"
-    clang++ -E -H -c "$OUTD/probe.cpp" -o /dev/null 2>&1 | grep -m3 "pkixtypes.h" | tee -a "$OUTD/diag.txt"
+    clang++ -E -H -c "$OUTD/probe.cpp" -o /dev/null > "$OUTD/probe.out" 2>&1 || true
+    grep -m3 "pkixtypes.h" "$OUTD/probe.out" | tee -a "$OUTD/diag.txt" || true
     echo "--- in-tree mozpkix dir:" | tee -a "$OUTD/diag.txt"
-    ls -la security/nss/lib/mozpkix/include/ 2>/dev/null | tee -a "$OUTD/diag.txt"
+    ls -la security/nss/lib/mozpkix/include/ 2>/dev/null | tee -a "$OUTD/diag.txt" || true
+    ls -la security/nss/lib/mozpkix/include/pkix/ 2>/dev/null | head -5 | tee -a "$OUTD/diag.txt" || true
     echo "--- pkixtypes.h sha256 + guards:" | tee -a "$OUTD/diag.txt"
     sha256sum "$PKIX" | tee -a "$OUTD/diag.txt"
     grep -nE "define MOZ_NO_HTTPS_IMPL|#if|#ifdef" "$PKIX" | head -20 | tee -a "$OUTD/diag.txt"
@@ -325,25 +327,21 @@ sed -i -e '/^ac_add_options --enable-profile-use=/d' \
        -e '/^ac_add_options --with-pgo-jarlog=/d' mozconfig
 # System-NSS-vs-firefox mismatch: Termux's rolling libnss (>= 3.134) began
 # shipping an /usr/include/nss/mozpkix directory whose headers add ML-DSA
-# TrustDomain pure virtuals (NSS bug 2068282, 2026-11-12). With
-# --with-system-nss that directory hijacks '#include "nss/mozpkix/*"', so every
-# TrustDomain subclass in this older Firefox becomes abstract. Before 3.134 the
-# dir did not exist and the in-tree copy was used (this is how 158 built).
-# Neutralise the system copy so includes fall back to the in-tree interface.
+# TrustDomain pure virtuals (NSS bug 2068282, 2026-11-12) and which is broken
+# for Firefox's include form anyway ('nss/mozpkix/pkixtypes.h' then cannot find
+# 'mozpkix/Input.h'). pkg-config nss gives '-I/usr/include/nss -I/usr/include',
+# so '/usr/include' wins regardless of our -I ordering. Fix at the filesystem:
+# replace the system dir with the in-tree 159-era interface (what this Firefox
+# line was written against). No flag-ordering dependency.
 SYS_NSS_MOZPKIX="${TERMUX_PREFIX_UX}/include/nss/mozpkix"
-if [ -d "$SYS_NSS_MOZPKIX" ]; then
-  mv "$SYS_NSS_MOZPKIX" "${SYS_NSS_MOZPKIX}.ecc-bak" 2>/dev/null \
-    || rm -rf "$SYS_NSS_MOZPKIX"
-  echo "neutralised system $SYS_NSS_MOZPKIX (ML-DSA interface newer than this Firefox)" | tee -a "$OUT/configure.log"
-fi
-# Belt-and-suspenders: also point -I at the in-tree 159-era interface.
-if [ -d security/nss/lib/mozpkix/include/pkix ]; then
-  SHADOW="$WORK/nss-shadow"
-  rm -rf "$SHADOW"; mkdir -p "$SHADOW/nss"
-  ln -s "$(pwd)/security/nss/lib/mozpkix/include/pkix" "$SHADOW/nss/mozpkix"
-  export CXXFLAGS="${CXXFLAGS:-} -I$SHADOW"
-  export CFLAGS="${CFLAGS:-} -I$SHADOW"
-  echo "nss-mozpkix shadow: $SHADOW/nss/mozpkix -> in-tree" | tee -a "$OUT/configure.log"
+INTREE_MOZPKIX="$(pwd)/security/nss/lib/mozpkix/include/pkix"
+if [ -d "$INTREE_MOZPKIX" ]; then
+  if [ -e "$SYS_NSS_MOZPKIX" ] && [ ! -e "${SYS_NSS_MOZPKIX}.ecc-bak" ]; then
+    mv "$SYS_NSS_MOZPKIX" "${SYS_NSS_MOZPKIX}.ecc-bak" 2>/dev/null || true
+  fi
+  rm -rf "$SYS_NSS_MOZPKIX"
+  ln -s "$INTREE_MOZPKIX" "$SYS_NSS_MOZPKIX"
+  echo "repointed $SYS_NSS_MOZPKIX -> in-tree 159 mozpkix" | tee -a "$OUT/configure.log"
 else
   echo "WARN: in-tree mozpkix include dir not found; system NSS may be too new" >&2
 fi
