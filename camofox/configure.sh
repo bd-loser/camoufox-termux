@@ -197,6 +197,15 @@ TERMUX_PREFIX_UX="${PREFIX:-/data/data/com.termux/files/usr}"
     comm -23 "$OUTD/base-virtuals.txt" "$OUTD/overrides.txt" | tee -a "$OUTD/diag.txt"
     echo "--- WTCV lines 225..236:" | tee -a "$OUTD/diag.txt"
     sed -n '225,236p' "$WTCV" | tee -a "$OUTD/diag.txt"
+    echo "--- system nss/mozpkix layout:" | tee -a "$OUTD/diag.txt"
+    find "${TERMUX_PREFIX_UX}/include/nss" -maxdepth 2 -name 'mozpkix*' 2>/dev/null | head | tee -a "$OUTD/diag.txt"
+    echo "--- pkg-config nss cflags:" | tee -a "$OUTD/diag.txt"
+    pkg-config --cflags nss 2>/dev/null | tee -a "$OUTD/diag.txt"
+    echo "--- which pkixtypes.h does a bare include resolve to:" | tee -a "$OUTD/diag.txt"
+    printf '#include "nss/mozpkix/pkixtypes.h"\n' > "$OUTD/probe.cpp"
+    clang++ -E -H -c "$OUTD/probe.cpp" -o /dev/null 2>&1 | grep -m3 "pkixtypes.h" | tee -a "$OUTD/diag.txt"
+    echo "--- in-tree mozpkix dir:" | tee -a "$OUTD/diag.txt"
+    ls -la security/nss/lib/mozpkix/include/ 2>/dev/null | tee -a "$OUTD/diag.txt"
     echo "--- pkixtypes.h sha256 + guards:" | tee -a "$OUTD/diag.txt"
     sha256sum "$PKIX" | tee -a "$OUTD/diag.txt"
     grep -nE "define MOZ_NO_HTTPS_IMPL|#if|#ifdef" "$PKIX" | head -20 | tee -a "$OUTD/diag.txt"
@@ -314,20 +323,24 @@ cat ../assets/base.mozconfig "$WORK/termux-sub.mozconfig" > mozconfig
 sed -i -e '/^ac_add_options --enable-profile-use=/d' \
        -e '/^ac_add_options --with-pgo-profile-path=/d' \
        -e '/^ac_add_options --with-pgo-jarlog=/d' mozconfig
-# System-NSS-vs-firefox mismatch: Termux's rolling libnss (>= 3.134) ships
-# mozpkix headers that add ML-DSA TrustDomain pure virtuals (NSS bug 2068282,
-# 2026-11-12). With --with-system-nss, `#include "nss/mozpkix/*"` resolves to
-# /usr/include/nss/mozpkix -> every TrustDomain subclass in this older Firefox
-# (NSSCertDBTrustDomain, AppTrustDomain, SignatureParamsTrustDomain, the
-# WebTransport verifier, ...) becomes abstract. Shadow the system dir with the
-# in-tree 159-era interface (security/nss/lib/mozpkix/include/pkix), which is
-# exactly what this Firefox line was written against. -I dirs precede the
-# system include dirs, so this wins without touching /usr.
+# System-NSS-vs-firefox mismatch: Termux's rolling libnss (>= 3.134) began
+# shipping an /usr/include/nss/mozpkix directory whose headers add ML-DSA
+# TrustDomain pure virtuals (NSS bug 2068282, 2026-11-12). With
+# --with-system-nss that directory hijacks '#include "nss/mozpkix/*"', so every
+# TrustDomain subclass in this older Firefox becomes abstract. Before 3.134 the
+# dir did not exist and the in-tree copy was used (this is how 158 built).
+# Neutralise the system copy so includes fall back to the in-tree interface.
+SYS_NSS_MOZPKIX="${TERMUX_PREFIX_UX}/include/nss/mozpkix"
+if [ -d "$SYS_NSS_MOZPKIX" ]; then
+  mv "$SYS_NSS_MOZPKIX" "${SYS_NSS_MOZPKIX}.ecc-bak" 2>/dev/null \
+    || rm -rf "$SYS_NSS_MOZPKIX"
+  echo "neutralised system $SYS_NSS_MOZPKIX (ML-DSA interface newer than this Firefox)" | tee -a "$OUT/configure.log"
+fi
+# Belt-and-suspenders: also point -I at the in-tree 159-era interface.
 if [ -d security/nss/lib/mozpkix/include/pkix ]; then
   SHADOW="$WORK/nss-shadow"
   rm -rf "$SHADOW"; mkdir -p "$SHADOW/nss"
   ln -s "$(pwd)/security/nss/lib/mozpkix/include/pkix" "$SHADOW/nss/mozpkix"
-  # APPEND (never replace: line ~288 already set a load-bearing CXXFLAGS).
   export CXXFLAGS="${CXXFLAGS:-} -I$SHADOW"
   export CFLAGS="${CFLAGS:-} -I$SHADOW"
   echo "nss-mozpkix shadow: $SHADOW/nss/mozpkix -> in-tree" | tee -a "$OUT/configure.log"
