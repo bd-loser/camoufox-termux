@@ -14,7 +14,7 @@ This project removes the workaround entirely: **we cross nothing and translate n
 
 ```
 Camoufox source (Firefox 159.0-beta.35 + anti-detect patches)
-        │  termux-docker (aarch64) + Termux clang/rust + 35 targeted patches
+        │  termux-docker (aarch64) + Termux clang/rust + termux firefox patch set + 9 bionic patches
         ▼
 Bionic ELF · /system/bin/linker64 · runs in Termux · no proot · no root
 ```
@@ -39,20 +39,41 @@ Bionic ELF · /system/bin/linker64 · runs in Termux · no proot · no root
 
 ## Install
 
-Artifact downloads need a GitHub login and expire (retention policy):
-
-1. Open [Actions → camofox-build](https://github.com/bd-loser/camoufox-termux/actions/workflows/camofox-build.yml)
-2. Download the latest `camofox-build-out` artifact
-3. Verify and install:
+**Recommended: the signed Termux APT repository** (same repo that serves opencode-bionic):
 
 ```bash
-unzip "camofox-build-out (N).zip" -d camofox-pkg
-sha256sum -c camofox-pkg/camoufox-*.tar.xz.sha256
-mkdir -p ~/browsers/camoufox && tar -xJf camofox-pkg/camoufox-*.tar.xz -C ~/browsers/camoufox
-~/browsers/camoufox/camoufox/camoufox-bin --version
+pkg install curl x11-repo
+curl -fsSL https://raw.githubusercontent.com/bd-loser/opencode-bionic/main/repo-setup.sh \
+  | TERMUX_PACKAGE=camoufox bash
+camoufox --version        # Camoufox Camoufox 159.0-beta.35
 ```
 
-Expected: `Camoufox Camoufox <version>`
+`x11-repo` is needed because Camoufox links GTK3 — enable it first on a fresh
+Termux. Updates: `pkg upgrade camoufox`. Full guide + fresh-Termux troubleshooting:
+[docs/INSTALL.md](docs/INSTALL.md).
+
+<details>
+<summary>Fallbacks (pacman / zip / tar.xz, or CI artifacts)</summary>
+
+Release downloads (no login, permanent) live on the rolling `bionic-latest`
+release and per-version `bionic-v<ver>` tags:
+<https://github.com/bd-loser/camoufox-termux/releases>
+
+```bash
+BASE=https://github.com/bd-loser/camoufox-termux/releases/download/bionic-latest
+VER=159.0b35
+# zip
+curl -fLO $BASE/camoufox-$VER-aarch64.zip && unzip camoufox-$VER-aarch64.zip -d ~/browsers/camoufox && ~/browsers/camoufox/install.sh
+# tar.xz tree (verify first)
+curl -fLO $BASE/camoufox-$VER-aarch64-tree.tar{,.sha256} && sha256sum -c camoufox-$VER-aarch64-tree.tar.sha256
+mkdir -p ~/browsers/camoufox-test && tar -xf camoufox-$VER-aarch64-tree.tar -C ~/browsers/camoufox-test
+```
+
+CI artifacts ([camofox-build](https://github.com/bd-loser/camoufox-termux/actions/workflows/camofox-build.yml))
+also exist but need a GitHub login and expire.
+
+</details>
+
 
 ## Use with Playwright (Juggler)
 
@@ -70,7 +91,7 @@ await page.goto('https://example.org');
 
 ## Known issues
 
-- Stock CLI `--screenshot` hangs on juggler-enabled builds (double teardown in `Helper.js`) — reported upstream: [daijro/camoufox#909](https://github.com/daijro/camoufox/issues/909). Use Playwright automation (verified working).
+- Stock CLI `--screenshot` used to hang on juggler builds (double teardown in `Helper.js`) — reported and **fixed upstream** in the Firefox 159 juggler rework ([daijro/camoufox#909](https://github.com/daijro/camoufox/issues/909), PR #997). The current 159-based builds ship that fix; reopen upstream if it still reproduces.
 
 ## Documentation
 

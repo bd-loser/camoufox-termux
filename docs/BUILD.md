@@ -47,7 +47,7 @@ Termux clang's default triple lacks an API level; cargo/cc-crate pass the unvers
 Termux patches contain `@TERMUX_PREFIX@`/`@TERMUX_HOST_PLATFORM@`; applied raw they become literal paths *inside the binary* (0009's `shm_open("/@TERMUX_PREFIX@/tmp/…")` → SharedPrefMap SIGSEGV). Scripts substitute before `git apply`.
 
 ### Vendored cargo checksums
-Any edit under `third_party/rust/*` (0033 glslopt, etc.) invalidates `.cargo-checksum.json` → cargo refuses the vendor dir. A sweep recomputes drifted file hashes after patching.
+Any edit under `third_party/rust/*` (0041 glslopt, etc.) invalidates `.cargo-checksum.json` → cargo refuses the vendor dir. A sweep recomputes drifted file hashes after patching.
 
 ### Patches (ours)
 | Patch | Why |
