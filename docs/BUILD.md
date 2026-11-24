@@ -1,6 +1,13 @@
 # Build from source
 
-Everything needed is inside this repository (`camofox/` — scripts, pins, patches; `.github/workflows/` — CI). A cold full build takes ~70–80 min on a 4-core ARM runner; warm (objdir persisted) is minutes.
+> Reproduce the native Bionic Camoufox build. Everything lives in this repo:
+> `camofox/` (scripts, pins, patches) and `.github/workflows/` (CI). A cold full
+> build takes **~70–90 min** on a 4-core ARM runner; warm (persisted objdir) is
+> minutes.
+
+**Contents:** [Pipeline](#pipeline) · [Pins](#pins) · [Release flow](#release-flow) ·
+[Key mechanics](#key-mechanics-each-was-a-real-failure) · [Our patches](#patches-ours) ·
+[mozconfig](#mozconfig) · [Local iteration](#local-iteration)
 
 ## Pipeline
 
@@ -16,9 +23,10 @@ GitHub Actions (ubuntu-24.04-arm)
         5. checksums   vendored .cargo-checksum.json sweep (must after any crate edit)
         6. wrapper     clang/clang++ → versioned triple (aarch64-unknown-linux-android24),
                        strips incoming --target= and -DANDROID
-        7. mozconfig   base.mozconfig + termux.mozconfig; 159's cross-PGO
-                       options are stripped (x86_64 profile is arch/ABI-wrong here);
-                       system `nss/mozpkix` is shadowed by the in-tree 159 interface
+        7. mozconfig   base.mozconfig + termux.mozconfig (see below); 159's
+                       cross-PGO options are stripped (x86_64 profile is
+                       arch/ABI-wrong here); system `nss/mozpkix` is repointed
+                       to the in-tree 159 interface
         8. configure   ./mach configure            (~1 min, exit 0)
         9. build       ./mach build -j4            (~35–70 min cold; ccache-assisted)
        10. package     ./mach package              (omni.ja + tar.xz + sha256)
@@ -63,7 +71,20 @@ Any edit under `third_party/rust/*` (0041 glslopt, etc.) invalidates `.cargo-che
 | 0043 | nsLocalFile lutimes probe lies under `-D_GNU_SOURCE` + bionic (guard `!defined(__ANDROID_API__)`) |
 
 ### mozconfig
-`termux.mozconfig` mirrors termux-packages' firefox template (system libs from Termux repos, `--target=@…@`, `--disable-jemalloc/…`, `--enable-mobile-optimize`) **minus** `--with-system-icu` (namespace rename breaks intl code; bundled ICU is upstream-default), **plus** a persistent objdir (`/ci-cache/objdir`) and `--disable-bootstrap`.
+`termux.mozconfig` mirrors termux-packages' firefox template (system libs from Termux repos, `--target=@…@`, `--disable-jemalloc/…`, `--enable-mobile-optimize`) with deliberate deviations:
+
+- **minus** `--with-system-icu` — the namespace rename breaks intl code; bundled ICU is upstream-default;
+- **minus** `--with-system-libvpx` — Firefox 159 references `vpx_mozilla_set_realtime_only`, only in Mozilla's libvpx fork; Termux ships stock libvpx, so build the bundled fork;
+- **plus** a persistent objdir (`/ci-cache/objdir`) and `--disable-bootstrap`;
+- 159's `base.mozconfig` cross-PGO options are stripped (x86_64 profile is wrong for aarch64/Bionic).
+
+### System-NSS drift (the `nss/mozpkix` repoint)
+With `--with-system-nss`, `#include "nss/mozpkix/*"` resolves through `pkg-config nss`
+(`-I/usr/include/nss -I/usr/include`) to Termux's rolling headers. When libnss went
+≥ 3.134 it added ML-DSA `TrustDomain` pure virtuals, making every `TrustDomain`
+subclass in this older Firefox abstract. `configure.sh` repoints the system
+`nss/mozpkix` directory at the **in-tree 159 interface**, satisfying both
+`nss/mozpkix/*` and its internal `mozpkix/*` includes. See TROUBLESHOOTING.
 
 ## Local iteration
 

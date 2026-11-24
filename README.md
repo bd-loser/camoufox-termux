@@ -2,8 +2,8 @@
 
 **Run [Camoufox](https://github.com/daijro/camoufox) — the anti-fingerprinting Firefox fork — natively on Android/Termux.** No glibc layer, no proot, no root: a real Firefox-class engine compiled with the Termux toolchain, running straight in Termux on `aarch64`.
 
-[![Build](https://github.com/bd-loser/camoufox-termux/actions/workflows/camofox-build.yml/badge.svg)](https://github.com/bd-loser/camoufox-termux/actions/workflows/camofox-build.yml)
-[![Release](https://img.shields.io/github/v/release/bd-loser/camoufox-termux?label=release&color=blue)](https://github.com/bd-loser/camoufox-termux/releases)
+[![Build](https://github.com/bd-loser/camoufox-termux/actions/workflows/camofox-build.yml/badge.svg?branch=main)](https://github.com/bd-loser/camoufox-termux/actions/workflows/camofox-build.yml)
+[![Release](https://img.shields.io/badge/release-159.0b35-blue.svg)](https://github.com/bd-loser/camoufox-termux/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Termux%20aarch64-success.svg)](#requirements)
 
