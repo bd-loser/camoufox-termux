@@ -447,6 +447,47 @@ if [ "$RC_B" = 0 ] && [ -n "$BIN" ]; then
   [ -n "$DEBVER" ] || DEBVER="0.0"
   PKGBASE="$OUT/camoufox-$DEBVER-aarch64"
 
+  # ---- derive runtime Depends from the ELF NEEDED set (issue #1) ----
+  # The .deb once declared a too-small hardcoded list and a fresh Termux died
+  # with "library libplds4.so not found" from libxul.so. Derive it instead so
+  # it cannot drift: scan the engine + libxul.so NEEDED sonames, map each to a
+  # Termux package, drop whatever gtk3 already pulls in transitively.
+  ENGINE="$(find "$STAGE" -maxdepth 1 -type f -name 'camoufox*' | head -1)"
+  LIBXUL="$(find "$STAGE" -name 'libxul.so' | head -1)"
+  NEEDED="$( { readelf -d "$ENGINE" 2>/dev/null; readelf -d "$LIBXUL" 2>/dev/null; } \
+             | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p' | sort -u )"
+  echo "NEEDED sonames ($(echo "$NEEDED" | wc -w)):"; echo "$NEEDED" | tr '\n' ' '; echo
+  # soname -> termux package. Anything absent here is either provided by the
+  # gtk3 closure below or a bionic/ndk system lib we must not depend on.
+  dep_pkg() {
+    case "$1" in
+      libnspr4.so|libplc4.so|libplds4.so)                 echo libnspr ;;
+      libnss3.so|libnssutil3.so|libsmime3.so|libssl3.so) echo libnss ;;
+      libevent-*.so*)                                     echo libevent ;;
+      libvpx.so*)                                         echo libvpx ;;
+      libwebp.so*|libwebpdemux.so*|libsharpyuv.so*)       echo libwebp ;;
+      libgtk-3.so*|libgdk-3.so*|libgdk_pixbuf-2.0.so*)    echo gtk3 ;;
+      libandroid-shmem.so*)                               echo libandroid-shmem ;;
+      libandroid-spawn.so*|libandroid-support.so*)        echo libandroid-spawn ;;
+      libc++_shared.so)                                   echo libc++ ;;
+      # transitively inside the gtk3 closure -> intentionally not declared:
+      libjpeg.so*|libxcb*.so*|libX11*.so*|libffi.so*|libz.so*|libcairo.so*|libpango*.so*|libatk*.so*) echo "" ;;
+      *)                                                  echo "" ;;
+    esac
+  }
+  DEPS_SET=""
+  for so in $NEEDED; do
+    p="$(dep_pkg "$so")"
+    [ -n "$p" ] || continue
+    case " $DEPS_SET " in *" $p "*) ;; *) DEPS_SET="$DEPS_SET $p";; esac
+  done
+  DEPS_SET="${DEPS_SET# }"
+  # Fallback to the known-good closed set if readelf gave us nothing.
+  [ -n "$DEPS_SET" ] || DEPS_SET="gtk3 libandroid-shmem libandroid-spawn libc++ libwebp libevent libnspr libnss"
+  DEPS_DEB="x11-repo, $(echo "$DEPS_SET" | sed 's/ /, /g')"
+  echo "derived Depends (deb): $DEPS_DEB"
+  echo "derived Depends (pacman): $DEPS_SET"
+
   # deb payload tree: termux debs carry ABSOLUTE paths (./data/data/...),
   # dpkg does NOT remap '/' to $PREFIX (verified on-device: './opt' =>
   # "Read-only file system"). Engine: $PREFIX/opt/camoufox, launcher:
@@ -484,7 +525,11 @@ WEOF
     #   libwebp   libwebp/libwebpdemux/libsharpyuv (gdk-pixbuf does NOT pull it)
     # libjpeg-turbo, libxcb, libx11, libffi, zlib, cairo, pango, gdk-pixbuf
     # and atk (via at-spi2-core) all arrive through gtk3 already.
-    echo "Depends: x11-repo, gtk3, libandroid-shmem, libandroid-spawn, libc++, libwebp, libevent, libvpx, libnspr, libnss"
+    # Depends derived above from libxul.so's NEEDED set (issue camoufox-termux#1).
+    # Fixed extra: x11-repo (gtk3 only exists once that repo is enabled).
+    # Skipped as already-transitive via gtk3: libjpeg-turbo, libxcb, libx11,
+    # libffi, zlib, cairo, pango, gdk-pixbuf, atk (via at-spi2-core).
+    echo "Depends: $DEPS_DEB"
     echo "Section: web"
     echo "Homepage: https://github.com/bd-loser/camoufox-termux"
     echo "Description: Camoufox anti-fingerprint Firefox fork (Bionic native)"
@@ -509,15 +554,7 @@ size = $(du -sk "$PRT/opt" | cut -f1)
 arch = aarch64
 # Mirror of the deb Depends above (pacman has no x11-repo dependency: the
 # x11 repo must be enabled separately there).
-depend = gtk3
-depend = libandroid-shmem
-depend = libandroid-spawn
-depend = libc++
-depend = libwebp
-depend = libevent
-depend = libvpx
-depend = libnspr
-depend = libnss
+$(for d in $DEPS_SET; do echo "depend = $d"; done)
 EOF
   python3 - "$PRT" > "$PRT/.MTREE" <<'PYM'
 import hashlib, os, sys, time
