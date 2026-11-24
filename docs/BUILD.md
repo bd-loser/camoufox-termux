@@ -17,7 +17,8 @@ GitHub Actions (ubuntu-24.04-arm)
         6. wrapper     clang/clang++ → versioned triple (aarch64-unknown-linux-android24),
                        strips incoming --target= and -DANDROID
         7. mozconfig   base.mozconfig + termux.mozconfig; 159's cross-PGO
-                       options are stripped (x86_64 profile is arch/ABI-wrong here)
+                       options are stripped (x86_64 profile is arch/ABI-wrong here);
+                       system `nss/mozpkix` is shadowed by the in-tree 159 interface
         8. configure   ./mach configure            (~1 min, exit 0)
         9. build       ./mach build -j4            (~35–70 min cold; ccache-assisted)
        10. package     ./mach package              (omni.ja + tar.xz + sha256)
@@ -60,7 +61,6 @@ Any edit under `third_party/rust/*` (0033 glslopt, etc.) invalidates `.cargo-che
 | 0041 | glslopt endian via `__BYTE_ORDER__` builtins (HAVE_ENDIAN_H unset when rust host is android) |
 | 0042 | js posix thread name → `prctl(PR_GET_NAME)` (bionic API-24 lacks pthread_getname_np) |
 | 0043 | nsLocalFile lutimes probe lies under `-D_GNU_SOURCE` + bionic (guard `!defined(__ANDROID_API__)`) |
-| 0044 | WebTransport `ServerCertHashesTrustDomain`: add NSS>=3.134 ML-DSA TrustDomain overrides (system NSS newer than 159 → subclass was abstract) |
 
 ### mozconfig
 `termux.mozconfig` mirrors termux-packages' firefox template (system libs from Termux repos, `--target=@…@`, `--disable-jemalloc/…`, `--enable-mobile-optimize`) **minus** `--with-system-icu` (namespace rename breaks intl code; bundled ICU is upstream-default), **plus** a persistent objdir (`/ci-cache/objdir`) and `--disable-bootstrap`.

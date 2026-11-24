@@ -314,6 +314,26 @@ cat ../assets/base.mozconfig "$WORK/termux-sub.mozconfig" > mozconfig
 sed -i -e '/^ac_add_options --enable-profile-use=/d' \
        -e '/^ac_add_options --with-pgo-profile-path=/d' \
        -e '/^ac_add_options --with-pgo-jarlog=/d' mozconfig
+# System-NSS-vs-firefox mismatch: Termux's rolling libnss (>= 3.134) ships
+# mozpkix headers that add ML-DSA TrustDomain pure virtuals (NSS bug 2068282,
+# 2026-11-12). With --with-system-nss, `#include "nss/mozpkix/*"` resolves to
+# /usr/include/nss/mozpkix -> every TrustDomain subclass in this older Firefox
+# (NSSCertDBTrustDomain, AppTrustDomain, SignatureParamsTrustDomain, the
+# WebTransport verifier, ...) becomes abstract. Shadow the system dir with the
+# in-tree 159-era interface (security/nss/lib/mozpkix/include/pkix), which is
+# exactly what this Firefox line was written against. -I dirs precede the
+# system include dirs, so this wins without touching /usr.
+if [ -d security/nss/lib/mozpkix/include/pkix ]; then
+  SHADOW="$WORK/nss-shadow"
+  rm -rf "$SHADOW"; mkdir -p "$SHADOW/nss"
+  ln -s "$(pwd)/security/nss/lib/mozpkix/include/pkix" "$SHADOW/nss/mozpkix"
+  # APPEND (never replace: line ~288 already set a load-bearing CXXFLAGS).
+  export CXXFLAGS="${CXXFLAGS:-} -I$SHADOW"
+  export CFLAGS="${CFLAGS:-} -I$SHADOW"
+  echo "nss-mozpkix shadow: $SHADOW/nss/mozpkix -> in-tree" | tee -a "$OUT/configure.log"
+else
+  echo "WARN: in-tree mozpkix include dir not found; system NSS may be too new" >&2
+fi
 # Persist the objdir through the /ci-cache mount: warm runs skip recompiling
 # everything (ccache replays into a live tree; rust fragments stay).
 if [ -d /ci-cache ]; then
